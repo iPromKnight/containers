@@ -1,0 +1,116 @@
+---
+version: "3"
+
+tasks:
+  default:
+    silent: true
+    cmds:
+      - task -l
+
+  test:
+    desc: |-
+      task APP=<app> CHANNEL=<channel> BASE=<true/false> test
+    cmds:
+      - task: download-goss
+      - >-
+          echo "VERSION: {{.VERSION}}"
+      - >-
+        cue vet --schema '#Spec' ./apps/{{.APP}}/metadata.json metadata.rules.cue
+      - >-
+        docker buildx build --progress=plain --load
+        -t {{.APP}}:{{.CHANNEL}}
+        --build-arg CHANNEL={{.CHANNEL}}
+        --build-arg VERSION={{.VERSION}}
+        -f ./apps/{{.APP}}/Dockerfile .
+      - >-
+        ./.goss/dgoss run {{.APP}}:{{.CHANNEL}} {{if eq .BASE "true"}}tail -f /dev/null{{end}}
+    vars:
+      VERSION:
+        sh: bash ./.github/scripts/upstream.sh "{{.APP}}" "{{.CHANNEL}}"
+    env:
+      CONTAINER_RUNTIME: docker
+      GOSS_PATH: ./.goss/goss
+      GOSS_OPTS: --retry-timeout 15s --sleep 2s --color --format documentation
+      GOSS_FILE: ./apps/{{.APP}}/ci/goss.yaml
+      
+  test-push:
+    silent: true
+    desc: |-
+      Build, test, and push multi-platform image to REGISTRY
+      Usage: task APP=<app> CHANNEL=<channel> BASE=<true|false> REGISTRY=<registry> test-push
+    cmds:
+      - task: download-goss
+      - >-
+        echo "VERSION: {{.VERSION}}"
+      - >-
+        echo "Target platforms: {{.PLATFORMS}}"
+#      
+#      - |
+#        echo "Creating buildx builder {{.BUILDER_NAME}}"
+#        docker buildx create --name {{.BUILDER_NAME}} --driver docker-container --use
+#        docker buildx inspect --bootstrap
+      
+      - >-
+        cue vet --schema '#Spec' ./apps/{{.APP}}/metadata.json metadata.rules.cue
+  
+      # Build locally for test platform and test
+      - >-
+        docker buildx build --progress=plain --load
+        -t {{.APP}}:{{.CHANNEL}}-test
+        --build-arg CHANNEL={{.CHANNEL}}
+        --build-arg VERSION={{.VERSION}}
+        -f ./apps/{{.APP}}/Dockerfile .
+  
+      # Run Goss tests
+      - |
+        if [ "{{.TESTS_ENABLED}}" = "true" ]; then
+          echo "Running Goss tests for {{.APP}}:{{.CHANNEL}}..."
+          ./.goss/dgoss run {{.APP}}:{{.CHANNEL}}-test {{if eq .BASE "true"}}tail -f /dev/null{{end}}
+        else
+          echo "Skipping Goss tests for {{.APP}}:{{.CHANNEL}} (tests.enabled = false)"
+        fi
+  
+      # Final production build + push for all platforms
+      - >-
+        docker buildx build --progress=plain --push
+        --platform={{.PLATFORMS}}
+        -t {{.REGISTRY}}/{{.APP}}:{{.CHANNEL}}
+        -t {{.REGISTRY}}/{{.APP}}:rolling
+        --build-arg CHANNEL={{.CHANNEL}}
+        --build-arg VERSION={{.VERSION}}
+        -f ./apps/{{.APP}}/Dockerfile .
+      
+#      - |
+#        echo "Cleaning up buildx builder {{.BUILDER_NAME}}"
+#        docker buildx prune --builder {{.BUILDER_NAME}} --force
+#        docker buildx rm {{.BUILDER_NAME}}
+    vars:
+      BUILDER_NAME:
+        sh: echo "builder-{{.APP}}-{{.CHANNEL}}-$(date +%s)"
+      VERSION:
+        sh: bash ./.github/scripts/upstream.sh "{{.APP}}" "{{.CHANNEL}}"
+      PLATFORMS:
+        sh: jq -r '.channels[] | select(.name == "{{.CHANNEL}}") | .platforms | join(",")' ./apps/{{.APP}}/metadata.json
+      TESTS_ENABLED:
+        sh: jq -r '.channels[] | select(.name == "{{.CHANNEL}}") | .tests.enabled' ./apps/{{.APP}}/metadata.json
+      REGISTRY: "ghcr.io/ipromknight"
+    env:
+        CONTAINER_RUNTIME: docker
+        GOSS_PATH: ./.goss/goss
+        GOSS_OPTS: --retry-timeout 15s --sleep 2s --color --format documentation
+        GOSS_FILE: ./apps/{{.APP}}/ci/goss.yaml
+
+  download-goss:
+    silent: true
+    vars:
+      # renovate: datasource=github-releases depName=aelsabbahy/goss
+      GOSS_VERSION: v0.3.18
+    cmds:
+      - mkdir -p ./.goss
+      - curl -fsSL -o ./.goss/goss https://github.com/aelsabbahy/goss/releases/download/{{.GOSS_VERSION}}/goss-linux-amd64
+      - chmod +x ./.goss/goss
+      - curl -fsSL -o ./.goss/dgoss https://raw.githubusercontent.com/aelsabbahy/goss/{{.GOSS_VERSION}}/extras/dgoss/dgoss
+      - chmod +x ./.goss/dgoss
+    status:
+      - test -f ./.goss/goss
+      - test -f ./.goss/dgoss

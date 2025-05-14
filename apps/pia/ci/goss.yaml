@@ -1,0 +1,18 @@
+---
+file:
+  /scripts/run:
+    exists: true
+  /scripts/healthcheck.sh:
+    exists: true
+  /scripts/pf_success.sh:
+    exists: true
+  /scripts/pf.sh:
+    exists: true
+  /scripts/pia-auth.sh:
+    exists: true
+  /scripts/wg-gen.sh:
+    exists: true
+  /RegionsListPubKey.pem:
+    exists: true
+  /rsa_4096.crt:
+    exists: true
