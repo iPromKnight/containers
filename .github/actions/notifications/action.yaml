@@ -1,0 +1,45 @@
+name: Send Notification
+description: Sends a notification with apprise
+
+inputs:
+  apprise_configuration:
+    required: true
+    description: "Apprise configuration URL"
+  tags:
+    required: true
+    description: "Tags to send notification for"
+  title:
+    required: true
+    description: "Title of the notification"
+  body:
+    required: true
+    description: "Message body to send"
+  attachment:
+    required: false
+    description: "Attachment to send"
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -euo pipefail
+
+        CURL_ARGS=(-X POST)
+        CURL_ARGS+=(-F "title=${TITLE}")
+        CURL_ARGS+=(-F "body=$(printf '%s' "${BODY}")")
+        CURL_ARGS+=(-F "tags=${TAGS}")
+
+        if [ -n "${ATTACHMENT}" ]; then
+          CURL_ARGS+=(-F "attach=@${ATTACHMENT}")
+        fi
+
+        echo "Sending notification with title: ${TITLE}"
+        curl "${CURL_ARGS[@]}" "${APPRISE_CONFIG}"
+      env:
+        APPRISE_CONFIG: ${{ inputs.apprise_configuration }}
+        BODY: ${{ inputs.body }}
+        TITLE: ${{ inputs.title }}
+        TAGS: ${{ inputs.tags }}
+        ATTACHMENT: ${{ inputs.attachment }}

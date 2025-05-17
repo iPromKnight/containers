@@ -11,11 +11,11 @@ if [[ "${STABLE}" == "false" || -z "${STABLE}" ]]; then
 fi
 
 # Use either GH_PAT or TOKEN
-AUTH="Authorization: Bearer ${GH_PAT:-${TOKEN:-}}"
+AUTH="Authorization: token ${GH_PAT:-${TOKEN:-}}"
 
 # Query GitHub Packages API
 tags_json=$(curl -fsSL -H "Accept: application/vnd.github.v3+json" -H "$AUTH" \
-  "https://api.github.com/ipromknight/packages/container/${APP}/versions")
+  "https://api.github.com/users/iPromKnight/packages/container/$APP/versions")
 
 # If the API call failed or returned nothing
 if [[ -z "${tags_json}" || "${tags_json}" == "[]" ]]; then

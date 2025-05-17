@@ -35,6 +35,6 @@ runs:
         file: ${{ inputs.dockerfile }}
         load: true
         tags: |
-          ghcr.io/${{ github.repository_owner }}/${{ inputs.tag_testing }}
+          ghcr.io/ipromknight/${{ inputs.tag_testing }}
         cache-from: type=gha
         cache-to: type=gha,mode=max

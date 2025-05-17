@@ -28,8 +28,18 @@ runs:
       env:
         DEBUG: true
         CONTAINER_RUNTIME: docker
-        GOSS_FILE: ${{ inputs.goss_config }}
         GOSS_OPTS: --retry-timeout 60s --sleep 2s --color --format documentation
         GOSS_FILES_STRATEGY: cp
       run: |
-        dgoss run ghcr.io/${{ github.repository_owner }}/${{ inputs.tag_testing }} ${{ inputs.goss_args }}
+        echo "🔍 Mounting $(dirname "${{ inputs.goss_config }}") to /goss"
+
+        full_path="${{ github.workspace }}/${{ inputs.goss_config }}"
+        test -f "$full_path" || {
+          echo "❌ Goss config not found at: $full_path"
+          exit 1
+        }
+
+        cp "$full_path" ./goss.yaml
+        export GOSS_FILE=./goss.yaml
+
+        dgoss run ghcr.io/ipromknight/${{ inputs.tag_testing }} ${{ inputs.goss_args }}

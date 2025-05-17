@@ -35,7 +35,6 @@ ADD https://raw.githubusercontent.com/pia-foss/desktop/master/daemon/res/ca/rsa_
 # The PIA desktop app uses this public key to verify server list downloads
 # https://github.com/pia-foss/desktop/blob/master/daemon/src/environment.cpp#L30
 
-
 # Add main work dir to PATH
 WORKDIR /scripts
 
