@@ -7,13 +7,14 @@ on:
       dryRun:
         description: "Only print changes, don't build or push"
         required: false
-        default: "false"
+        default: false
+        type: boolean
   schedule:
     - cron: "0 0 * * 5"
 
 env:
   TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  DRY_RUN: ${{ github.event.inputs.dryRun || 'false' }}
+  DRY_RUN: ${{ github.event.inputs.dryRun }}
 
 jobs:
   generate-build-matrix:
