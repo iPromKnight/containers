@@ -100,4 +100,4 @@ jobs:
           tag_rolling: ${{ steps.vars.outputs.chan_tag_rolling }}
           tag_version: ${{ steps.vars.outputs.chan_tag_version }}
           platforms: ${{ steps.vars.outputs.chan_platforms }}
-          token: ${{ env.TOKEN }}
+          token: ${{ secrets.GH_PAT }}
