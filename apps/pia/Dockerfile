@@ -56,4 +56,5 @@ VOLUME /pia-shared
 ARG BUILDINFO=manual
 ENV BUILDINFO=${BUILDINFO}
 
+
 COPY --chmod=0755 ./apps/pia/promknight-entrypoint.sh /promknight-entrypoint.sh
