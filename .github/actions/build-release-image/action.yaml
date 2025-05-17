@@ -67,7 +67,7 @@ runs:
         file: ${{ inputs.dockerfile }}
         push: ${{ inputs.push }}
         tags: |
-          ghcr.io/${{ github.repository_owner }}/${{ inputs.tag_rolling }}
-          ghcr.io/${{ github.repository_owner }}/${{ inputs.tag_version }}
+          ghcr.io/${{ toLower(github.repository_owner) }}/${{ inputs.tag_rolling }}
+          ghcr.io/${{ toLower(github.repository_owner) }}/${{ inputs.tag_version }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
