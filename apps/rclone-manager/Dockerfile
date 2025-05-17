@@ -7,7 +7,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION https://github.com/iPromKnight/rclone-manager /source
 
-FROM --platform=linux/amd64 golang:1.23-alpine AS builder
+FROM --platform=linux/amd64 golang:1.24-alpine AS builder
 
 RUN apk add --no-cache git
 
