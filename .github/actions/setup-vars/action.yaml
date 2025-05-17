@@ -80,10 +80,10 @@ runs:
 
         if test -f "./apps/${{ inputs.app }}/${{ inputs.channel }}/Dockerfile"; then
           echo "chan_dockerfile=./apps/${{ inputs.app }}/${{ inputs.channel }}/Dockerfile" >> "$GITHUB_OUTPUT"
-          echo "chan_goss_config=./apps/${{ inputs.app }}/${{ inputs.channel }}/goss.yaml" >> "$GITHUB_OUTPUT"
+          echo "chan_goss_config=./apps/${{ inputs.app }}/${{ inputs.channel }}/ci/goss.yaml" >> "$GITHUB_OUTPUT"
         else
           echo "chan_dockerfile=./apps/${{ inputs.app }}/Dockerfile" >> "$GITHUB_OUTPUT"
-          echo "chan_goss_config=./apps/${{ inputs.app }}/goss.yaml" >> "$GITHUB_OUTPUT"
+          echo "chan_goss_config=./apps/${{ inputs.app }}/ci/goss.yaml" >> "$GITHUB_OUTPUT"
         fi
 
         if [[ "$chan_stable" == true ]]; then
