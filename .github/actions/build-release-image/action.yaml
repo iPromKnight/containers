@@ -48,7 +48,7 @@ runs:
         password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Build and push image
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v6
       with:
         build-args: |
           VERSION=${{ inputs.upstream_version }}
