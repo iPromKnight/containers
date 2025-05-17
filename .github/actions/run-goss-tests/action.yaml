@@ -1,0 +1,35 @@
+name: Run Goss Tests
+description: Executes dgoss tests for a Docker image
+
+inputs:
+  tag_testing:
+    required: true
+    description: The full image tag (e.g. `app:testingz`)
+
+  goss_config:
+    required: true
+    description: Path to the Goss YAML config (e.g. `apps/app/ci/goss.yaml`)
+
+  goss_args:
+    required: false
+    default: ""
+    description: Runtime args passed to `docker run` (e.g. entrypoint override)
+
+runs:
+  using: composite
+  steps:
+    - name: Install Goss
+      uses: e1himself/goss-installation-action@v1.1.0
+      with:
+        version: v0.3.18
+
+    - name: Run Goss tests
+      shell: bash
+      env:
+        DEBUG: true
+        CONTAINER_RUNTIME: docker
+        GOSS_FILE: ${{ inputs.goss_config }}
+        GOSS_OPTS: --retry-timeout 60s --sleep 2s --color --format documentation
+        GOSS_FILES_STRATEGY: cp
+      run: |
+        dgoss run ghcr.io/${{ github.repository_owner }}/${{ inputs.tag_testing }} ${{ inputs.goss_args }}

@@ -1,0 +1,40 @@
+name: Build Test Image
+description: Builds the Docker image for testing (local load only)
+
+inputs:
+  app:
+    required: true
+    description: "App to build for"
+  channel:
+    required: true
+    description: "Channel to build for"
+  upstream_version:
+    required: true
+    description: "Upstream version to build"
+  dockerfile:
+    required: true
+    description: "Dockerfile path"
+  tag_testing:
+    required: true
+    description: "Tag for testing"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker image (test)
+      uses: docker/build-push-action@v5
+      with:
+        build-args: |
+          VERSION=${{ inputs.upstream_version }}
+          CHANNEL=${{ inputs.channel }}
+        context: .
+        platforms: linux/amd64
+        file: ${{ inputs.dockerfile }}
+        load: true
+        tags: |
+          ghcr.io/${{ github.repository_owner }}/${{ inputs.tag_testing }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max

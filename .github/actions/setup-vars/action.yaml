@@ -1,0 +1,97 @@
+name: Setup Vars
+description: Extracts image metadata and outputs build vars
+
+inputs:
+  app:
+    required: true
+    description: "App to build for"
+    default: ""
+  channel:
+    required: true
+    description: "Channel to build for"
+    default: ""
+
+outputs:
+  chan_platforms:
+    description: "Platforms to build for"
+    value: ${{ steps.extract.outputs.chan_platforms }}
+  chan_tests_enabled:
+    description: "Whether tests are enabled"
+    value: ${{ steps.extract.outputs.chan_tests_enabled }}
+  chan_tests_type:
+    description: "Type of tests to run"
+    value: ${{ steps.extract.outputs.chan_tests_type }}
+  chan_upstream_version:
+    description: "Upstream version to build"
+    value: ${{ steps.extract.outputs.chan_upstream_version }}
+  chan_goss_args:
+    description: "Goss args to pass"
+    value: ${{ steps.extract.outputs.chan_goss_args }}
+  chan_label_type:
+    description: "Label type to use"
+    value: ${{ steps.extract.outputs.chan_label_type }}
+  chan_dockerfile:
+    description: "Dockerfile path"
+    value: ${{ steps.extract.outputs.chan_dockerfile }}
+  chan_goss_config:
+    description: "Goss config path"
+    value: ${{ steps.extract.outputs.chan_goss_config }}
+  chan_tag_testing:
+    description: "Tag for testing"
+    value: ${{ steps.extract.outputs.chan_tag_testing }}
+  chan_tag_rolling:
+    description: "Tag for rolling"
+    value: ${{ steps.extract.outputs.chan_tag_rolling }}
+  chan_tag_version:
+    description: "Tag for version"
+    value: ${{ steps.extract.outputs.chan_tag_version }}
+  chan_build_date:
+    description: "Build date"
+    value: ${{ steps.extract.outputs.chan_build_date }}
+
+runs:
+  using: composite
+  steps:
+    - id: extract
+      shell: bash
+      run: |
+        container_base=$(jq '.base' ./apps/${{ inputs.app }}/metadata.json)
+        echo "chan_build_date=$(date --rfc-3339=seconds --utc)" >> "$GITHUB_OUTPUT"
+
+        chan_config=$(jq --arg chan "${{ inputs.channel }}" '(.channels | .[] | select(.name == $chan))' ./apps/${{ inputs.app }}/metadata.json)
+        chan_stable=$(jq -r '.stable' <<< "$chan_config")
+        chan_platforms=$(jq -r '.platforms | join(",")' <<< "$chan_config")
+        chan_tests_enabled=$(jq -r '.tests.enabled' <<< "$chan_config")
+        chan_tests_type=$(jq -r '.tests.type' <<< "$chan_config")
+        chan_upstream_version=$(bash ./.github/scripts/upstream.sh "${{ inputs.app }}" "${{ inputs.channel }}")
+
+        echo "chan_platforms=$chan_platforms" >> "$GITHUB_OUTPUT"
+        echo "chan_tests_enabled=$chan_tests_enabled" >> "$GITHUB_OUTPUT"
+        echo "chan_tests_type=$chan_tests_type" >> "$GITHUB_OUTPUT"
+        echo "chan_upstream_version=$chan_upstream_version" >> "$GITHUB_OUTPUT"
+
+        [[ "$chan_tests_enabled" == true && "$chan_tests_type" == "cli" ]] && echo "chan_goss_args=tail -f /dev/null" >> "$GITHUB_OUTPUT"
+
+        if [[ "$container_base" == true ]]; then
+          echo "chan_label_type=org.opencontainers.image.base" >> "$GITHUB_OUTPUT"
+        else
+          echo "chan_label_type=org.opencontainers.image" >> "$GITHUB_OUTPUT"
+        fi
+
+        if test -f "./apps/${{ inputs.app }}/${{ inputs.channel }}/Dockerfile"; then
+          echo "chan_dockerfile=./apps/${{ inputs.app }}/${{ inputs.channel }}/Dockerfile" >> "$GITHUB_OUTPUT"
+          echo "chan_goss_config=./apps/${{ inputs.app }}/${{ inputs.channel }}/goss.yaml" >> "$GITHUB_OUTPUT"
+        else
+          echo "chan_dockerfile=./apps/${{ inputs.app }}/Dockerfile" >> "$GITHUB_OUTPUT"
+          echo "chan_goss_config=./apps/${{ inputs.app }}/goss.yaml" >> "$GITHUB_OUTPUT"
+        fi
+
+        if [[ "$chan_stable" == true ]]; then
+          echo "chan_tag_testing=${{ inputs.app }}:testingz" >> "$GITHUB_OUTPUT"
+          echo "chan_tag_rolling=${{ inputs.app }}:rolling" >> "$GITHUB_OUTPUT"
+          echo "chan_tag_version=${{ inputs.app }}:$chan_upstream_version" >> "$GITHUB_OUTPUT"
+        else
+          echo "chan_tag_testing=${{ inputs.app }}-${{ inputs.channel }}:testingz" >> "$GITHUB_OUTPUT"
+          echo "chan_tag_rolling=${{ inputs.app }}-${{ inputs.channel }}:rolling" >> "$GITHUB_OUTPUT"
+          echo "chan_tag_version=${{ inputs.app }}-${{ inputs.channel }}:$chan_upstream_version" >> "$GITHUB_OUTPUT"
+        fi

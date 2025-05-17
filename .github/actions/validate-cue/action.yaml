@@ -1,0 +1,18 @@
+name: Validate CUE Metadata
+description: Validates app metadata JSON against rules using CUE
+
+inputs:
+  app:
+    required: true
+    description: The app name to validate
+
+runs:
+  using: composite
+  steps:
+    - name: Install CUE
+      uses: cue-lang/setup-cue@v1.0.0-alpha.2
+
+    - name: Validate metadata
+      shell: bash
+      run: |
+        cue vet --schema '#Spec' ./apps/${{ inputs.app }}/metadata.json ./metadata.rules.cue

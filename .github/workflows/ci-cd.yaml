@@ -1,0 +1,117 @@
+---
+name: "Image: Rebuild CI/CD"
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/**"
+      - "!apps/**/metadata.json"
+      - "!apps/**/README.md"
+
+jobs:
+  get-changes:
+    name: Collect changes
+    runs-on: ubuntu-latest
+    outputs:
+      addedOrModifiedImages: ${{ steps.collect-changes.outputs.addedOrModifiedImages }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Collect changes
+        id: collect-changes
+        uses: ./.github/actions/collect-changes
+
+  generate-build-matrix:
+    name: Generate matrix for building images
+    runs-on: ubuntu-latest
+    needs:
+      - get-changes
+    outputs:
+      matrix: ${{ steps.get-changed.outputs.changes }}
+    if: ${{ needs.get-changes.outputs.addedOrModifiedImages != '[]' }}
+    steps:
+      - name: Install tools
+        run: |
+          sudo apt-get update 
+          sudo apt-get -y install moreutils jo
+
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Fetch modified images
+        id: get-changed
+        shell: bash
+        run: |
+          declare -a changes_array=()
+          while read -r app
+          do
+            while read -r channel
+            do
+              change="$(jo app="$app" channel="$channel")"
+              changes_array+=($change)
+            done < <(jq -r '.channels[] | .name' "./apps/$app/metadata.json")
+          done < <(echo '${{ needs.get-changes.outputs.addedOrModifiedImages }}' | jq --raw-output -c '.[]')
+
+          output="$(jo -a ${changes_array[*]})"
+          echo "changes=$output" >> "$GITHUB_OUTPUT"
+
+  images-build:
+    name: Build and push images
+    runs-on: ubuntu-latest
+    needs:
+      - generate-build-matrix
+    if: ${{ needs.generate-build-matrix.outputs.matrix != '[]' }}
+    strategy:
+      matrix:
+        image: ${{ fromJson(needs.generate-build-matrix.outputs.matrix) }}
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Extract build metadata
+        id: vars
+        uses: ./.github/actions/setup-vars
+        with:
+          app: ${{ matrix.image.app }}
+          channel: ${{ matrix.image.channel }}
+
+      - name: Validate metadata
+        uses: ./.github/actions/validate-cue
+        with:
+          app: ${{ matrix.image.app }}
+
+      - name: Build test image
+        uses: ./.github/actions/build-test-image
+        with:
+          app: ${{ matrix.image.app }}
+          channel: ${{ matrix.image.channel }}
+          upstream_version: ${{ steps.vars.outputs.chan_upstream_version }}
+          dockerfile: ${{ steps.vars.outputs.chan_dockerfile }}
+          tag_testing: ${{ steps.vars.outputs.chan_tag_testing }}
+
+      - name: Run Goss tests
+        if: ${{ steps.vars.outputs.chan_tests_enabled == 'true' }}
+        uses: ./.github/actions/run-goss-tests
+        with:
+          tag_testing: ${{ steps.vars.outputs.chan_tag_testing }}
+          goss_config: ${{ steps.vars.outputs.chan_goss_config }}
+          goss_args: ${{ steps.vars.outputs.chan_goss_args }}
+
+      - name: Build and push release image
+        uses: ./.github/actions/build-release-image
+        with:
+          app: ${{ matrix.image.app }}
+          channel: ${{ matrix.image.channel }}
+          upstream_version: ${{ steps.vars.outputs.chan_upstream_version }}
+          dockerfile: ${{ steps.vars.outputs.chan_dockerfile }}
+          label_type: ${{ steps.vars.outputs.chan_label_type }}
+          build_date: ${{ steps.vars.outputs.chan_build_date }}
+          tag_rolling: ${{ steps.vars.outputs.chan_tag_rolling }}
+          tag_version: ${{ steps.vars.outputs.chan_tag_version }}
+          platforms: ${{ steps.vars.outputs.chan_platforms }}
