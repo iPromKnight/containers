@@ -145,7 +145,7 @@ get_go_speedtest_net() {
     TERM_ARCH="$ARCH"
   fi
   VERSION=$(get_latest_release showwin/speedtest-go | sed -e 's/^v//')
-  LINK="https://github.com/showwin/speedtest-go/releases/download/v${VERSION}/speedtest-go_1.7.10_Linux_${ARCH}.tar.gz"
+  LINK="https://github.com/showwin/speedtest-go/releases/download/v${VERSION}/speedtest-go_1.7.10_Linux_${TERM_ARCH}.tar.gz"
   wget "$LINK" -O /tmp/speedtest.tar.gz  && \
   tar -zxvf /tmp/speedtest.tar.gz && \
   mv "speedtest-go" /tmp/gort-tools/speedtest-go && \
