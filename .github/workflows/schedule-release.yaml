@@ -40,11 +40,13 @@ jobs:
   images-build:
     name: Build and push images
     runs-on: ubuntu-latest
-    outputs:
-      images: ${{ needs.generate-build-matrix.outputs.images }}
-    needs:
-      - generate-build-matrix
-    if: ${{ needs.generate-build-matrix.outputs.matrix != '[]' }}
+    needs: [generate-build-matrix]
+    if: |
+      always()
+      && contains(needs.*.result, 'success')
+      && !contains(needs.*.result, 'failure')
+      && !cancelled()
+      && needs.generate-build-matrix.outputs.matrix != '[]'
     strategy:
       matrix:
         image: ${{ fromJson(needs.generate-build-matrix.outputs.matrix) }}
@@ -107,9 +109,13 @@ jobs:
           
   notify-success:
     runs-on: ubuntu-latest
-    needs:
-      - images-build
-    if: ${{ needs.images-build.result == 'success' }}
+    needs: [generate-build-matrix, images-build]
+    if: |
+      always()
+      && contains(needs.*.result, 'success')
+      && !contains(needs.*.result, 'failure')
+      && !cancelled()
+      && needs.generate-build-matrix.outputs.matrix != '[]'
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -125,7 +131,7 @@ jobs:
             
             The following images were successfully rebuilt:
             
-            - ${{ join(fromJson(needs.images-build.outputs.images || '[]'), '\n- ') }}
+            - ${{ join(fromJson(needs.generate-build-matrix.outputs.images || '[]'), '\n- ') }}
             
             ---
             🕐 Triggered by automated schedule
@@ -136,9 +142,12 @@ jobs:
   
   notify-failure:
     runs-on: ubuntu-latest
-    needs:
-      - images-build
-    if: ${{ needs.images-build.result == 'failure' }}
+    needs: [generate-build-matrix, images-build]
+    if: |
+      always()
+      && contains(needs.*.result, 'failure')
+      && !cancelled()
+      && needs.generate-build-matrix.outputs.matrix != '[]'
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -154,7 +163,7 @@ jobs:
             
             The following images failed to rebuild:
             
-            - ${{ join(fromJson(needs.images-build.outputs.images || '[]'), '\n- ') }}
+            - ${{ join(fromJson(needs.generate-build-matrix.outputs.images || '[]'), '\n- ') }}
             
             ---
             🕐 Triggered by automated schedule

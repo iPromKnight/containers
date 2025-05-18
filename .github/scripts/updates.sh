@@ -64,12 +64,15 @@ fi
 
 if [[ "$output" == "[]" ]]; then
     echo "✅ No changes detected."
+    echo "changes=[]" >> "$GITHUB_OUTPUT"
+    echo "images=[]" >> "$GITHUB_OUTPUT"
+    echo "⏭️ Skipping build. Nothing to do..."
+    exit 0
 else
     echo "✅ Changes detected:"
     echo "$output"
+    echo "changes=${output}" >> "$GITHUB_OUTPUT"
 fi
-
-echo "changes=${output}" >> "$GITHUB_OUTPUT"
 
 image_list="[]"
 if [[ "${#changes_array[@]}" -gt 0 ]]; then
