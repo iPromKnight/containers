@@ -153,6 +153,13 @@ get_go_speedtest_net() {
   perform_sleep
 }
 
+get_yabs() {
+  LINK="https://raw.githubusercontent.com/masonr/yet-another-bench-script/refs/heads/master/yabs.sh"
+  wget "$LINK" -O /tmp/gort-tools/yabs && \
+  chmod +x /tmp/gort-tools/yabs
+  perform_sleep
+}
+
 mkdir -p /tmp/gort-tools
 
 get_ctop
@@ -166,3 +173,4 @@ get_flux
 get_k9s
 get_go_cloudflare_speedtest
 get_go_speedtest_net
+get_yabs
