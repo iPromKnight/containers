@@ -5,9 +5,9 @@ ARG VERSION
 RUN apk update && apk upgrade && \
     apk add --no-cache git
 
-RUN git clone -b $VERSION https://github.com/iPromKnight/rclone-manager /source
+RUN git clone -b main https://github.com/iPromKnight/rclone-manager /source
 
-FROM --platform=linux/amd64 golang:1.24-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 RUN apk add --no-cache git
 
@@ -21,11 +21,18 @@ RUN go build -o rclone-manager ./cmd/main.go
 
 FROM ghcr.io/ipromknight/alpine:rolling
 
+ARG VERSION
+
 RUN apk add --no-cache \
     fuse3 \
     curl \
-    rclone \
-    su-exec
+    su-exec \
+    unzip
+
+RUN curl -Lso /tmp/rclone.zip "https://github.com/rclone/rclone/releases/download/v${VERSION}/rclone-v${VERSION}-linux-amd64.zip" && \
+    unzip /tmp/rclone.zip "rclone-v${VERSION}-linux-amd64/rclone" -d /tmp && \
+    install -m 0755 /tmp/rclone-v${VERSION}-linux-amd64/rclone /usr/local/bin/rclone && \
+    rm -rf /tmp/rclone*
 
 RUN mkdir -p /data
 

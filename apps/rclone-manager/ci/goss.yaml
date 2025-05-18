@@ -1,0 +1,6 @@
+---
+file:
+  /usr/local/bin/rclone-manager:
+    exists: true
+  /usr/local/bin/rclone:
+    exists: true
