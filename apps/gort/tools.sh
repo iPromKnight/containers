@@ -18,11 +18,16 @@ case $ARCH in
         ;;
 esac
 
+perform_sleep() {
+  sleep 5
+}
+
 get_ctop() {
   VERSION=$(get_latest_release bcicen/ctop | sed -e 's/^v//')
   LINK="https://github.com/bcicen/ctop/releases/download/v${VERSION}/ctop-${VERSION}-linux-${ARCH}"
   wget "$LINK" -O /tmp/gort-tools/ctop && \
   chmod +x /tmp/gort-tools/ctop
+  perform_sleep
 }
 
 get_calicoctl() {
@@ -33,21 +38,18 @@ get_calicoctl() {
 }
 
 get_termshark() {
-  case "$ARCH" in
-    *)
-      VERSION=$(get_latest_release gcla/termshark | sed -e 's/^v//')
-      if [ "$ARCH" == "amd64" ]; then
-        TERM_ARCH=x64
-      else
-        TERM_ARCH="$ARCH"
-      fi
-      LINK="https://github.com/gcla/termshark/releases/download/v${VERSION}/termshark_${VERSION}_linux_${TERM_ARCH}.tar.gz"
-      wget "$LINK" -O /tmp/termshark.tar.gz && \
-      tar -zxvf /tmp/termshark.tar.gz && \
-      mv "termshark_${VERSION}_linux_${TERM_ARCH}/termshark" /tmp/gort-tools/termshark && \
-      chmod +x /tmp/gort-tools/termshark
-      ;;
-  esac
+  if [ "$ARCH" == "amd64" ]; then
+    TERM_ARCH=x64
+  else
+    TERM_ARCH="$ARCH"
+  fi
+  VERSION=$(get_latest_release gcla/termshark | sed -e 's/^v//')
+  LINK="https://github.com/gcla/termshark/releases/download/v${VERSION}/termshark_${VERSION}_linux_${TERM_ARCH}.tar.gz"
+  wget "$LINK" -O /tmp/termshark.tar.gz && \
+  tar -zxvf /tmp/termshark.tar.gz && \
+  mv "termshark_${VERSION}_linux_${TERM_ARCH}/termshark" /tmp/gort-tools/termshark && \
+  chmod +x /tmp/gort-tools/termshark
+  perform_sleep
 }
 
 get_grpcurl() {
@@ -63,6 +65,7 @@ get_grpcurl() {
   mv "grpcurl" /tmp/gort-tools/grpcurl && \
   chmod +x /tmp/gort-tools/grpcurl
   chown root:root /tmp/gort-tools/grpcurl
+  perform_sleep
 }
 
 get_fortio() {
@@ -77,6 +80,7 @@ get_fortio() {
   tar -zxvf /tmp/fortio.tgz && \
   mv "usr/bin/fortio" /tmp/gort-tools/fortio && \
   chmod +x /tmp/gort-tools/fortio
+  perform_sleep
 }
 
 get_cilium() {
@@ -86,6 +90,7 @@ get_cilium() {
   tar -zxvf /tmp/cilium.tar.gz && \
   mv "cilium" /tmp/gort-tools/cilium && \
   chmod +x /tmp/gort-tools/cilium
+  perform_sleep
 }
 
 get_tetragon() {
@@ -95,6 +100,7 @@ get_tetragon() {
   tar -zxvf /tmp/tetra.tar.gz && \
   mv "tetra" /tmp/gort-tools/tetra && \
   chmod +x /tmp/gort-tools/tetra
+  perform_sleep
 }
 
 get_k9s() {
@@ -104,13 +110,47 @@ get_k9s() {
   tar -zxvf /tmp/k9s.tar.gz && \
   mv "k9s" /tmp/gort-tools/k9s && \
   chmod +x /tmp/gort-tools/k9s
+  perform_sleep
+}
+
+get_flux() {
+  VERSION=$(get_latest_release fluxcd/flux2 | sed -e 's/^v//')
+  LINK="https://github.com/fluxcd/flux2/releases/download/v${VERSION}/flux_${VERSION}_linux_${ARCH}.tar.gz"
+  wget "$LINK" -O /tmp/flux.tar.gz  && \
+  tar -zxvf /tmp/flux.tar.gz && \
+  mv "flux" /tmp/gort-tools/flux && \
+  chmod +x /tmp/gort-tools/flux
+  perform_sleep
 }
 
 get_go_cloudflare_speedtest() {
-  VERSION=$(get_latest_release zoonderkins/go-speed-cloudflare-cli | sed -e 's/^v//')
-  LINK="https://github.com/zoonderkins/go-speed-cloudflare-cli/releases/download/v${VERSION}/go-speed-cloudflare-cli-linux-amd64"
-  wget "$LINK" -O /tmp/gort-tools/go-speed  && \
-  chmod +x /tmp/gort-tools/go-speed
+  case "$ARCH" in
+    amd64)
+      VERSION=$(get_latest_release zoonderkins/go-speed-cloudflare-cli | sed -e 's/^v//')
+      LINK="https://github.com/zoonderkins/go-speed-cloudflare-cli/releases/download/v${VERSION}/go-speed-cloudflare-cli-linux-amd64"
+      wget "$LINK" -O /tmp/gort-tools/cloudflare-speedtest  && \
+      chmod +x /tmp/gort-tools/cloudflare-speedtest
+      perform_sleep
+      ;;
+    *)
+      echo "Unsupported architecture for go-speed-cloudflare-cli: $ARCH"
+      ;;
+  esac
+}
+
+get_go_speedtest_net() {
+  if [ "$ARCH" == "amd64" ]; then
+    TERM_ARCH=x86_64
+  else
+    TERM_ARCH="$ARCH"
+  fi
+  VERSION=$(get_latest_release showwin/speedtest-go | sed -e 's/^v//')
+  LINK="https://github.com/showwin/speedtest-go/releases/download/v${VERSION}/speedtest-go_1.7.10_Linux_${ARCH}.tar.gz"
+  wget "$LINK" -O /tmp/speedtest.tar.gz  && \
+  tar -zxvf /tmp/speedtest.tar.gz && \
+  mv "speedtest-go" /tmp/gort-tools/speedtest-go && \
+  chmod +x /tmp/gort-tools/speedtest-go
+  perform_sleep
 }
 
 mkdir -p /tmp/gort-tools
@@ -122,5 +162,7 @@ get_grpcurl
 get_fortio
 get_cilium
 get_tetragon
+get_flux
 get_k9s
 get_go_cloudflare_speedtest
+get_go_speedtest_net
