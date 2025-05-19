@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y \
 
 RUN /tmp/fetch_tools.sh
 
-FROM alpine:3.21.0
+FROM alpine:3.21.3
 
 RUN set -ex \
     && echo "http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories \
