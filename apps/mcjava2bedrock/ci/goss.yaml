@@ -1,0 +1,6 @@
+---
+file:
+  /promknight-entrypoint.sh:
+    exists: true
+  /app/converter.sh:
+    exists: true
