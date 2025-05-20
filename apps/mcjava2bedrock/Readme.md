@@ -25,7 +25,8 @@
 ### Docker
 
 To run, simply:
-```
+
+```bash
 docker run --rm -it \
   -v ./input:/app/input \
   -v ./output:/app/target \
@@ -43,8 +44,12 @@ To run without settings prompts, use flags:
 
 For example:
 
-```
-./converter.sh MyResourcePack.zip -w "false" -m "MyBedrock.mcpack" -a "entity_alphatest_one_sided" -b "alpha_test" -f "null" -v "1.18.2"
+```bash
+docker run --rm -it \
+  -v ./input:/app/input \
+  -v ./output:/app/target \
+  ghcr.io/ipromknight/mcjava2bedrock:rolling \
+  /app/input/MyResourcePack.zip -w "false" -m "MyBedrock.mcpack" -a "entity_alphatest_one_sided" -b "alpha_test" -f "null" -v "1.18.2"
 ```
 
 ### Item Icons
