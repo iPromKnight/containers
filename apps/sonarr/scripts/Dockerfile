@@ -1,4 +1,4 @@
-FROM ghcr.io/elfhosted/alpine:rolling@sha256:42c34434da805c1c907c64e360538654a84379cd5bbfba10a73870c50db44a87 
+FROM ghcr.io/elfhosted/alpine:rolling@sha256:5074e62f9deeb6228a9b86c8f64eac139acfce8d2cb4db91668386c2dcbd7a98 
 
 # for initial install
 USER root
