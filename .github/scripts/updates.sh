@@ -14,8 +14,6 @@ process_channel() {
   local channel="$2"
   local stable="$3"
 
-  exec 3>&1  # Open FD 3 for returning structured output
-
   echo "::group::Checking ${app}/${channel} (stable=${stable})"
 
   published_version=$(
