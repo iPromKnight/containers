@@ -1,0 +1,171 @@
+---
+name: "Manual: Release All App Images"
+
+on:
+  workflow_dispatch:
+    inputs:
+      dryRun:
+        description: "Only print changes, don't build or push"
+        required: false
+        default: false
+        type: boolean
+
+env:
+  TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  DRY_RUN: ${{ github.event.inputs.dryRun }}
+
+jobs:
+  generate-build-matrix:
+    name: Generate matrix for building images
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.updates.outputs.changes }}
+      images: ${{ steps.updates.outputs.images }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          token: ${{ env.TOKEN }}
+
+      - name: Install tools
+        run: |
+          sudo apt-get update 
+          sudo apt-get -y install moreutils jo
+
+      - name: Fetch all apps
+        id: updates
+        run: ./.github/scripts/rebuild-all.sh
+        
+  images-build:
+    name: Build and push images
+    runs-on: ubuntu-latest
+    needs: [generate-build-matrix]
+    if: |
+      always()
+      && contains(needs.*.result, 'success')
+      && !contains(needs.*.result, 'failure')
+      && !cancelled()
+      && needs.generate-build-matrix.outputs.matrix != '[]'
+    strategy:
+      matrix:
+        image: ${{ fromJson(needs.generate-build-matrix.outputs.matrix) }}
+      fail-fast: false
+    steps:
+      - name: Dry run summary
+        if: ${{ env.DRY_RUN == 'true' }}
+        run: |
+          echo "DRY RUN ENABLED – no images will be built or pushed"
+          echo "Matrix:"
+          echo '${{ needs.generate-build-matrix.outputs.matrix }}'
+
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Extract build metadata
+        id: vars
+        uses: ./.github/actions/setup-vars
+        with:
+          app: ${{ matrix.image.app }}
+          channel: ${{ matrix.image.channel }}
+
+      - name: Validate metadata
+        uses: ./.github/actions/validate-cue
+        with:
+          app: ${{ matrix.image.app }}
+
+      - name: Build test image
+        if: ${{ env.DRY_RUN != 'true' }}
+        uses: ./.github/actions/build-test-image
+        with:
+          app: ${{ matrix.image.app }}
+          channel: ${{ matrix.image.channel }}
+          upstream_version: ${{ steps.vars.outputs.chan_upstream_version }}
+          dockerfile: ${{ steps.vars.outputs.chan_dockerfile }}
+          tag_testing: ${{ steps.vars.outputs.chan_tag_testing }}
+
+      - name: Run Goss tests
+        if: ${{ env.DRY_RUN != 'true' && steps.vars.outputs.chan_tests_enabled == 'true' }}
+        uses: ./.github/actions/run-goss-tests
+        with:
+          tag_testing: ${{ steps.vars.outputs.chan_tag_testing }}
+          goss_config: ${{ steps.vars.outputs.chan_goss_config }}
+          goss_args: ${{ steps.vars.outputs.chan_goss_args }}
+
+      - name: Build and push release image
+        if: ${{ env.DRY_RUN != 'true' }}
+        uses: ./.github/actions/build-release-image
+        with:
+          app: ${{ matrix.image.app }}
+          channel: ${{ matrix.image.channel }}
+          upstream_version: ${{ steps.vars.outputs.chan_upstream_version }}
+          dockerfile: ${{ steps.vars.outputs.chan_dockerfile }}
+          label_type: ${{ steps.vars.outputs.chan_label_type }}
+          build_date: ${{ steps.vars.outputs.chan_build_date }}
+          tag_rolling: ${{ steps.vars.outputs.chan_tag_rolling }}
+          tag_version: ${{ steps.vars.outputs.chan_tag_version }}
+          platforms: ${{ steps.vars.outputs.chan_platforms }}
+          token: ${{ secrets.GH_PAT }}
+          
+  notify-success:
+    runs-on: ubuntu-latest
+    needs: [generate-build-matrix, images-build]
+    if: |
+      always()
+      && contains(needs.*.result, 'success')
+      && !contains(needs.*.result, 'failure')
+      && !cancelled()
+      && needs.generate-build-matrix.outputs.matrix != '[]'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        
+      - name: Notify success
+        uses: ./.github/actions/notifications
+        with:
+          title: "Scheduled Release Complete"
+          tags: '${{ secrets.APPRISE_TAGS }}'
+          apprise_configuration: '${{ secrets.APPRISE_CONFIG }}'
+          body: |
+            ✅ **Image Rebuilds Complete**
+            
+            The following images were successfully rebuilt:
+            
+            - ${{ join(fromJson(needs.generate-build-matrix.outputs.images || '[]'), '\n- ') }}
+            
+            ---
+            🕐 Triggered by automated schedule
+            📅 Date: ${{ github.event.head_commit.timestamp }}
+            🔗 Commit: [${{ github.event.head_commit.message }}](${{ github.event.head_commit.url }})
+            🔗 Workflow: [${{ github.workflow }}](${{ github.run_url }})
+            🔗 Repository: [${{ github.repository }}](${{ github.event.repository.html_url }})
+  
+  notify-failure:
+    runs-on: ubuntu-latest
+    needs: [generate-build-matrix, images-build]
+    if: |
+      always()
+      && contains(needs.*.result, 'failure')
+      && !cancelled()
+      && needs.generate-build-matrix.outputs.matrix != '[]'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      
+      - name: Notify failure
+        uses: ./.github/actions/notifications
+        with:
+          title: "Scheduled Release Failed"
+          tags: '${{ secrets.APPRISE_TAGS }}'
+          apprise_configuration: '${{ secrets.APPRISE_CONFIG }}'
+          body: |
+            ❌ **Image Rebuilds Failed**
+            
+            The following images failed to rebuild:
+            
+            - ${{ join(fromJson(needs.generate-build-matrix.outputs.images || '[]'), '\n- ') }}
+            
+            ---
+            🕐 Triggered by automated schedule
+            📅 Date: ${{ github.event.head_commit.timestamp }}
+            🔗 Commit: [${{ github.event.head_commit.message }}](${{ github.event.head_commit.url }})
+            🔗 Workflow: [${{ github.workflow }}](${{ github.run_url }})
+            🔗 Repository: [${{ github.repository }}](${{ github.event.repository.html_url }})
