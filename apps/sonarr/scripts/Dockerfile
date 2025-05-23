@@ -1,4 +1,4 @@
-FROM ghcr.io/elfhosted/alpine:rolling@sha256:5074e62f9deeb6228a9b86c8f64eac139acfce8d2cb4db91668386c2dcbd7a98 
+FROM ghcr.io/ipromknight/alpine:rolling 
 
 # for initial install
 USER root
@@ -20,4 +20,4 @@ RUN chmod 755 /prepare-scripts.sh && /prepare-scripts.sh
 
 # USER 568
 
-ENTRYPOINT ["/init"] # set on test or in child images
+ENTRYPOINT ["/init"]

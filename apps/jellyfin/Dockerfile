@@ -1,4 +1,4 @@
-FROM ghcr.io/ipromknight/ubuntu:rolling@sha256:7023b1419420f9cdb10f46c837fd80bf2b615f6aa273fdd82c45105b216fbdf1
+FROM ghcr.io/ipromknight/ubuntu:rolling
 
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
