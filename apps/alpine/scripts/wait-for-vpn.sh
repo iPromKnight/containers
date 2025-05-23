@@ -20,3 +20,8 @@ if [[ "${WAIT_FOR_GLUETUN:-false}" == "true" ]]; then
     done
     echo "✅ Gluetun is ready. Starting application..."
 fi
+
+if [[ -n "${AFTER_VPN_DELAY_SECONDS:-}" ]]; then
+    echo "⏳ Sleeping for ${AFTER_VPN_DELAY_SECONDS}s after VPN connection..."
+    sleep "$AFTER_VPN_DELAY_SECONDS"
+fi
