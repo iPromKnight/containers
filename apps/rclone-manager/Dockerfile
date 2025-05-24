@@ -39,12 +39,21 @@ RUN apk add --no-cache \
     fuse3 \
     curl \
     su-exec \
-    unzip
+    unzip 
 
-RUN curl -Lso /tmp/rclone.zip "https://github.com/rclone/rclone/releases/download/v${VERSION}/rclone-v${VERSION}-linux-amd64.zip" && \
-    unzip /tmp/rclone.zip "rclone-v${VERSION}-linux-amd64/rclone" -d /tmp && \
-    install -m 0755 /tmp/rclone-v${VERSION}-linux-amd64/rclone /usr/local/bin/rclone && \
-    rm -rf /tmp/rclone*
+ARG TARGETARCH=amd64
+ENV ARCH_SUFFIX=${TARGETARCH}
+
+RUN \
+  case "${TARGETPLATFORM}" in \
+      'linux/amd64') export ARCH='amd64' ;; \
+      'linux/arm64') export ARCH='arm64' ;; \
+      *) echo "Unsupported TARGETPLATFORM: ${TARGETPLATFORM}" && exit 1 ;; \
+  esac \
+  && curl -fsSL "https://github.com/rclone/rclone/releases/download/v${VERSION}/rclone-v${VERSION}-linux-${ARCH}.zip" -o /tmp/rclone.zip \
+  && unzip /tmp/rclone.zip "rclone-v${VERSION}-linux-${ARCH}/rclone" -d /tmp \
+  && install -m 0755 /tmp/rclone-v${VERSION}-linux-${ARCH}/rclone /usr/local/bin/rclone \
+  && rm -rf /tmp/rclone*
 
 RUN mkdir -p /data
 
