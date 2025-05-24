@@ -7,17 +7,29 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b main https://github.com/iPromKnight/rclone-manager /source
 
-FROM golang:1.24-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS builder
+
+ARG TARGETOS
+ARG TARGETARCH
 
 RUN apk add --no-cache git
 
 WORKDIR /app
 
-COPY --from=cloner /source/src/go.mod go.sum* ./
-RUN go mod download
+COPY --from=cloner /source/src/go.mod /source/src/go.sum .
 
-COPY --from=cloner /source/src/ ./
-RUN go build -o rclone-manager ./cmd/main.go
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download -x
+
+COPY --from=cloner /source/src/. .
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+    go build -trimpath \
+    -ldflags="-w -s" \
+    -o /rclone-manager \
+    cmd/main.go
 
 FROM ghcr.io/ipromknight/alpine:rolling
 
@@ -38,7 +50,7 @@ RUN mkdir -p /data
 
 RUN ln -s /usr/bin/fusermount3 /usr/bin/fusermount
 
-COPY --from=builder --chmod=0755 /app/rclone-manager /usr/local/bin/rclone-manager
+COPY --from=builder --chmod=0755 /rclone-manager /usr/local/bin/rclone-manager
 
 RUN echo "user_allow_other" >> /etc/fuse.conf
 
