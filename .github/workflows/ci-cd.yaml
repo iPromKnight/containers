@@ -58,11 +58,11 @@ jobs:
             while read -r channel
             do
               change="$(jo app="$app" channel="$channel")"
-              changes_array+=($change)
+              changes_array+=("$change")
             done < <(jq -r '.channels[] | .name' "./apps/$app/metadata.json")
           done < <(echo '${{ needs.get-changes.outputs.addedOrModifiedImages }}' | jq --raw-output -c '.[]')
 
-          output="$(jo -a ${changes_array[*]})"
+          output="$(jo -a "${changes_array[@]}")"
           echo "changes=$output" >> "$GITHUB_OUTPUT"
           
           image_list="[]"
