@@ -9,6 +9,9 @@ on:
       - "apps/**"
       - "!apps/**/metadata.json"
       - "!apps/**/README.md"
+        
+env:
+  TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   get-changes:

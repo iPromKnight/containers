@@ -1,4 +1,5 @@
 FROM alpine:latest AS cloner
+
 ARG VERSION
 
 RUN apk update && apk upgrade && \
