@@ -1,0 +1,14 @@
+---
+process:
+  tshock:
+    running: true
+  ttyd:
+    running: true
+    
+port:
+  tcp:3001:
+    listening: true
+
+http:
+  http://localhost:3001:
+    status: 200

@@ -1,0 +1,17 @@
+{
+  "app": "tshock",
+  "base": false,
+  "channels": [
+    {
+      "name": "general-devel",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "stable": true,
+      "tests": {
+        "enabled": true,
+        "type": "web"
+      }
+    } 
+  ]
+}
