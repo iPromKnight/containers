@@ -26,8 +26,6 @@ RUN set -eux; \
 
 FROM mcr.microsoft.com/dotnet/runtime:6.0
 
-EXPOSE 7777 7878
-
 COPY --from=cloner /tshock /tshock
 
 RUN set -eux; \
@@ -42,6 +40,8 @@ ENV LOGPATH=/tshock/logs
 ENV WORLD_FILENAME=""
 
 VOLUME ["/config", "/tshock/logs", "/tshock/ServerPlugins"]
+
+EXPOSE 7777 7878
 
 RUN apt-get update -y && \
     apt-get install -y nuget jq tmux && \
