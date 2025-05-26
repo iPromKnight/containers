@@ -155,6 +155,7 @@ jobs:
         with:
           title: "Image rebuilds successful"
           tags: '${{ secrets.APPRISE_TAGS }}'
+          gh_verification: '${{ secrets.GH_VERIFICATION }}'
           apprise_configuration: '${{ secrets.APPRISE_CONFIG }}'
           body: |
             ✅ **Image Rebuilds Complete**
@@ -169,7 +170,6 @@ jobs:
             🔗 Commit: [${{ github.event.head_commit.message }}](${{ github.event.head_commit.url }})
             🔗 Workflow: [${{ github.workflow }}](${{ github.run_url }})
             🔗 Repository: [${{ github.repository }}](${{ github.event.repository.html_url }})
-          
   notify-failure:
     runs-on: ubuntu-latest
     needs: [generate-build-matrix, images-build]
@@ -188,6 +188,7 @@ jobs:
           title: "Image rebuilds failed"
           tags: '${{ secrets.APPRISE_TAGS }}'
           apprise_configuration: '${{ secrets.APPRISE_CONFIG }}'
+          gh_verification: '${{ secrets.GH_VERIFICATION }}'
           body: |
             ❌ **Image Rebuilds Failed**
   

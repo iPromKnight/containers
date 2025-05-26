@@ -126,6 +126,7 @@ jobs:
           title: "Scheduled Release Complete"
           tags: '${{ secrets.APPRISE_TAGS }}'
           apprise_configuration: '${{ secrets.APPRISE_CONFIG }}'
+          gh_verification: '${{ secrets.GH_VERIFICATION }}'
           body: |
             ✅ **Image Rebuilds Complete**
             
@@ -158,6 +159,7 @@ jobs:
           title: "Scheduled Release Failed"
           tags: '${{ secrets.APPRISE_TAGS }}'
           apprise_configuration: '${{ secrets.APPRISE_CONFIG }}'
+          gh_verification: '${{ secrets.GH_VERIFICATION }}'
           body: |
             ❌ **Image Rebuilds Failed**
             

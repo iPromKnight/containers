@@ -43,6 +43,7 @@ VOLUME ["/config", "/tshock/logs", "/tshock/ServerPlugins"]
 
 EXPOSE 7777 7878
 
+
 RUN apt-get update -y && \
     apt-get install -y nuget jq tmux && \
     rm -rf /var/lib/apt/lists/* /tmp/*

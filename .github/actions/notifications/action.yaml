@@ -2,6 +2,9 @@ name: Send Notification
 description: Sends a notification with apprise
 
 inputs:
+  gh_verification:
+    required: true
+    description: "GitHub verification token"
   apprise_configuration:
     required: true
     description: "Apprise configuration URL"
@@ -27,6 +30,7 @@ runs:
         set -euo pipefail
 
         CURL_ARGS=(-X POST)
+        CURL_ARGS+=(-H "gh-verification: ${GH_VERIFICATION}")
         CURL_ARGS+=(-F "title=${TITLE}")
         CURL_ARGS+=(-F "body=$(printf '%s' "${BODY}")")
         CURL_ARGS+=(-F "tags=${TAGS}")
@@ -36,8 +40,13 @@ runs:
         fi
 
         echo "Sending notification with title: ${TITLE}"
-        curl "${CURL_ARGS[@]}" "${APPRISE_CONFIG}"
+        
+        if ! curl "${CURL_ARGS[@]}" "${APPRISE_CONFIG}" > /dev/null 2>&1; then
+          echo "::error ::Failed to send notification (curl exited with error)."
+          exit 1
+        fi
       env:
+        GH_VERIFICATION: ${{ inputs.gh_verification }}
         APPRISE_CONFIG: ${{ inputs.apprise_configuration }}
         BODY: ${{ inputs.body }}
         TITLE: ${{ inputs.title }}
