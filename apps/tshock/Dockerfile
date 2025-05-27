@@ -24,7 +24,7 @@ RUN set -eux; \
     rm "$TSHOCKZIP"; \
     chmod +x "/tshock/TShock.Server"
 
-FROM mcr.microsoft.com/dotnet/runtime:6.0
+FROM mcr.microsoft.com/dotnet/runtime:9.0
 
 COPY --from=cloner /tshock /tshock
 
