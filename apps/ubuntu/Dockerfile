@@ -104,10 +104,10 @@ RUN \
 ENV LANG en_US.UTF-8
 
 VOLUME ["/config"]
-RUN mkdir -p /extra-scripts \
-    && chown -R notroot:notroot /extra-scripts \
-    && chmod -R 775 /extra-scripts
-COPY --chmod=755 ./apps/ubuntu/scripts /scripts
+RUN mkdir -p /extra_scripts \
+    && chown -R notroot:notroot /extra_scripts \
+    && chmod -R 775 /extra_scripts
+COPY --chmod=755 ./apps/ubuntu/scripts /prom_scripts
 COPY --from=builder /go/bin/envsubst /usr/local/bin/envsubst
 COPY --chmod=0755 apps/ubuntu/base-entrypoint.sh /base-entrypoint.sh
 COPY --chmod=0755 apps/ubuntu/promknight-entrypoint.sh /promknight-entrypoint.sh

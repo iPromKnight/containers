@@ -70,10 +70,10 @@ RUN \
     && rm -rf /tmp/*
 
 VOLUME ["/config"]
-RUN mkdir -p /extra-scripts \
-    && chown -R notroot:notroot /extra-scripts \
-    && chmod -R 775 /extra-scripts
-COPY ./apps/alpine/scripts /scripts
+RUN mkdir -p /extra_scripts \
+    && chown -R notroot:notroot /extra_scripts \
+    && chmod -R 775 /extra_scripts
+COPY ./apps/alpine/scripts /prom_scripts
 COPY --chmod=0755 apps/alpine/base-entrypoint.sh /base-entrypoint.sh
 COPY --chmod=0755 apps/alpine/promknight-entrypoint.sh /promknight-entrypoint.sh
 COPY --from=builder /go/bin/envsubst /usr/local/bin/envsubst
