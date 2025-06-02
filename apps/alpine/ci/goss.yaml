@@ -1,15 +1,15 @@
 ---
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#file
 file:
-  /scripts/greeting.sh:
+  /prom_scripts/greeting.sh:
     exists: true
-  /scripts/umask.sh:
+  /prom_scripts/umask.sh:
     exists: true
-  /scripts/wait-for-vpn.sh:
+  /prom_scripts/wait-for-vpn.sh:
     exists: true
-  /scripts/wait-for-mounts.sh:
+  /prom_scripts/wait-for-mounts.sh:
     exists: true
-  /scripts/wait-for-urls.sh:
+  /prom_scripts/wait-for-urls.sh:
     exists: true
   /usr/local/bin/envsubst:
     exists: true
