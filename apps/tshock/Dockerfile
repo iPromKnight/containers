@@ -1,4 +1,4 @@
-FROM alpine:3.21 AS cloner
+FROM alpine:3.22 AS cloner
 
 RUN apk add --no-cache \
     curl unzip
