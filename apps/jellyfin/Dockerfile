@@ -18,10 +18,6 @@ RUN set -ex && \
 
 RUN dotnet build --configuration Release --output /artifacts /src/DeoVRDeeplink/DeoVRDeeplink.csproj
 
-# Stage 2: Final image
-FROM jellyfin/jellyfin:latest
-COPY --from=builder /src/bin/Release/net7.0/DeoVRDeeplink.dll /opt/plugins/DeoVRDeeplink/DeoVRDeeplink.dll
-
 FROM ghcr.io/ipromknight/ubuntu:rolling
 
 ARG TARGETPLATFORM
