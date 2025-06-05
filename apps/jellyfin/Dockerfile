@@ -1,3 +1,27 @@
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS deovr-plugin-builder
+
+RUN apt-get update && \
+    apt-get install -y \
+    wget \
+    curl \
+    unzip \
+    jq \
+    && rm -rf /var/lib/apt/lists/*
+    
+RUN set -ex && \
+    version=$(curl -s https://api.github.com/repos/iPromKnight/DeoVRDeeplink/releases/latest | jq -r .tag_name) && \
+    version="${version#v}" && \
+    wget -q "https://github.com/iPromKnight/DeoVRDeeplink/archive/refs/tags/v${version}.zip" -O /tmp/plugin.zip && \
+    unzip -q /tmp/plugin.zip -d /tmp && \
+    mkdir -p /src /artifacts && \
+    cp -r /tmp/DeoVRDeeplink-${version}/* /src/
+
+RUN dotnet build --configuration Release --output /artifacts /src/DeoVRDeeplink/DeoVRDeeplink.csproj
+
+# Stage 2: Final image
+FROM jellyfin/jellyfin:latest
+COPY --from=builder /src/bin/Release/net7.0/DeoVRDeeplink.dll /opt/plugins/DeoVRDeeplink/DeoVRDeeplink.dll
+
 FROM ghcr.io/ipromknight/ubuntu:rolling
 
 ARG TARGETPLATFORM
@@ -9,6 +33,9 @@ ENV NVIDIA_DRIVER_CAPABILITIES="compute,video,utility"
 
 # Disable glibc dynamic heap adjustment
 ENV MALLOC_TRIM_THRESHOLD_=131072
+
+# Disable file locking in .NET Core
+ENV DOTNET_SYSTEM_IO_DISABLEFILELOCKING="true"
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -56,6 +83,9 @@ RUN \
 ENV LD_PRELOAD="/usr/lib/x86_64-linux-gnu/libjemalloc.so.2"
 
 USER 568
+
+
+COPY --from=deovr-plugin-builder /artifacts/DeoVRDeeplink.dll /opt/plugins/DeoVRDeeplink/DeoVRDeeplink.dll
 
 COPY --chmod=0755 ./apps/jellyfin/promknight-entrypoint.sh /promknight-entrypoint.sh
 
