@@ -43,7 +43,7 @@ RUN mkdir -p /extra-scripts \
 
 ADD --chmod=755 https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 /usr/local/bin/ttyd
 COPY --chmod=0755 --chown=568:568 apps/ubuntu/base-entrypoint.sh /entrypoint.sh
-COPY --chmod=0755 --chown=568:568 apps/ubuntu/prom_scripts /prom_scripts
+COPY --chmod=0755 --chown=568:568 apps/ubuntu/scripts /prom_scripts
 COPY --chmod=0755 --chown=568:568 apps/imagemaid/root /
 
 ARG user=notroot
