@@ -4,7 +4,7 @@ RUN apk add --update --no-cache tmux ttyd git && \
     git clone -b $VERSION https://github.com/sirrobot01/decypharr.git  /source
 
 # Stage 1: Build binaries
-FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS builder
 
 ARG TARGETOS
 ARG TARGETARCH
