@@ -43,6 +43,8 @@ COPY --from=build /source/dist/requirements.txt .
 
 RUN uv python install 3.9
 
+ENV UV_CACHE_DIR="/tmp/uv-cache"
+
 RUN uv venv --python 3.9 && \
     . .venv/bin/activate && \
     uv pip install --upgrade pip wheel && \
