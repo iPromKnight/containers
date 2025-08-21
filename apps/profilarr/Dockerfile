@@ -46,7 +46,9 @@ RUN uv python install 3.9
 RUN uv venv --python 3.9 && \
     . .venv/bin/activate && \
     uv pip install --upgrade pip wheel && \
-    uv pip install --no-cache-dir -r requirements.txt
+    uv pip install --no-cache-dir -r requirements.txt 
+
+RUN chown -R 568:568 /app
 
 LABEL org.opencontainers.image.authors="Dictionarry dictionarry@pm.me"
 LABEL org.opencontainers.image.description="Profilarr - Profile manager for *arr apps"
