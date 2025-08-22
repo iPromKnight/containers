@@ -43,10 +43,8 @@ if [ "$SEED_USER" = "true" ]; then
 fi
 
 # Execute the main command
-if [ "$PUID" = "0" ] && [ "$PGID" = "0" ]; then
-    # Running as root, no need for gosu
-    exec /app/Cleanuparr "$@"
-else
-    # Use gosu to drop privileges
+if [ "$SEED_USER" = "true" ]; then
     exec gosu "$PUID:$PGID" /app/Cleanuparr "$@"
+else
+    exec /app/Cleanuparr "$@"
 fi
