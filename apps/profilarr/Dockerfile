@@ -29,11 +29,9 @@ ARG BUILDPLATFORM
 ARG VERSION
 ARG CHANNEL
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
-
 RUN apt-get update && \
-    apt-get install -y git && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y git python3.9 pip \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -41,14 +39,8 @@ COPY --from=build /source/dist/backend/app ./app
 COPY --from=build /source/dist/static ./app/static
 COPY --from=build /source/dist/requirements.txt .
 
-RUN uv python install 3.9
-
-ENV UV_CACHE_DIR="/tmp/uv-cache"
-
-RUN uv venv --python 3.9 && \
-    . .venv/bin/activate && \
-    uv pip install --upgrade pip wheel && \
-    uv pip install --no-cache-dir -r requirements.txt 
+RUN pip install --upgrade pip wheel \
+    && pip install --no-cache-dir -r requirements.txt
 
 RUN chown -R 568:568 /app
 
@@ -59,5 +51,7 @@ LABEL org.opencontainers.image.title="Profilarr"
 LABEL org.opencontainers.image.version="release"
 
 EXPOSE 6868
+
+USER 568
 
 COPY --chmod=0755 apps/profilarr/promknight-entrypoint.sh /promknight-entrypoint.sh
