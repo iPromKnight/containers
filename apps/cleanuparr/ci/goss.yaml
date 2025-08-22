@@ -1,0 +1,8 @@
+---
+process:
+  Cleanuparr:
+    running: true
+
+http:
+  http://localhost:11011:
+    status: 200
