@@ -1,5 +1,5 @@
 {
-  "app": "gluetun",
+  "app": "overseerr",
   "base": false,
   "channels": [
     {
@@ -9,8 +9,8 @@
       ],
       "stable": true,
       "tests": {
-        "enabled": false,
-        "type": "cli"
+        "enabled": true,
+        "type": "web"
       }
     }
   ]

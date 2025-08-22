@@ -1,9 +1,9 @@
 {
-  "app": "gluetun",
+  "app": "tuliprox",
   "base": false,
   "channels": [
     {
-      "name": "master",
+      "name": "main",
       "platforms": [
         "linux/amd64"
       ],
@@ -12,6 +12,6 @@
         "enabled": false,
         "type": "cli"
       }
-    }
+    } 
   ]
 }

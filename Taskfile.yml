@@ -35,7 +35,7 @@ tasks:
       
   test-x64:
     desc: |-
-      task APP=<app> CHANNEL=<channel> BASE=<true/false> test
+      task APP=<app> CHANNEL=<channel> BASE=<true/false> [SKIP_STARTUP=true] test
     cmds:
       - task: download-goss
       - >-
@@ -49,10 +49,15 @@ tasks:
         --build-arg VERSION={{.VERSION}}
         -f ./apps/{{.APP}}/Dockerfile .
       - >-
-        ./.goss/dgoss run {{.APP}}:{{.CHANNEL}} {{if eq .BASE "true"}}tail -f /dev/null{{end}}
+        ./.goss/dgoss run
+        --platform linux/amd64
+        {{if eq .SKIP_STARTUP "true"}}-e SKIP_STARTUP=1{{end}}
+        {{.APP}}:{{.CHANNEL}}
+        {{if eq .BASE "true"}}tail -f /dev/null{{end}}
     vars:
       VERSION:
         sh: bash ./.github/scripts/upstream.sh "{{.APP}}" "{{.CHANNEL}}"
+      SKIP_STARTUP: '{{.SKIP_STARTUP | default "false"}}'
     env:
       CONTAINER_RUNTIME: docker
       GOSS_PATH: ./.goss/goss
