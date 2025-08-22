@@ -21,8 +21,7 @@ cat << "EOF"
 
 EOF
 
-exec \
-  uv run gunicorn \
-    --bind 0.0.0.0:6868 \
-    --timeout 600 \
-    "app.main:create_app()"
+exec /app/.venv/bin/gunicorn \
+  --bind 0.0.0.0:6868 \
+  --timeout 600 \
+  "app.main:create_app()"
