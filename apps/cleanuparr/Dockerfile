@@ -42,7 +42,7 @@ RUN dotnet_archive=dotnet-runtime-${DOTNET_VERSION}-linux-x64.tar.gz \
 LABEL org.opencontainers.image.title="Cleanuparr"
 
 WORKDIR /app
-COPY --from=cloner /app .
+COPY --from=cloner --chown=568:568 /app .
 COPY --chmod=0755 ./apps/cleanuparr/promknight-entrypoint.sh /promknight-entrypoint.sh
 ENV PUID=568 \
     PGID=568 \
