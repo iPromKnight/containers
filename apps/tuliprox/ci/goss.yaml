@@ -1,22 +1,12 @@
 ---
-file:
-  /app/tuliprox:
-    exists: true
-    mode: "0755"
+process:
+  tuliprox:
+    running: true
 
-command:
-  tuliprox-version:
-    exec: "/app/tuliprox -V"
-    exit-status: 0
-    stdout:
-      - '/^[a-zA-Z0-9._-]*\s*[0-9]+\.[0-9]+\.[0-9]+.*$/'
+port:
+  tcp:8901:
+    listening: true
 
-  tuliprox-smoke-no-config:
-    # Capture stderr too, and don't fail the test on non-zero exit
-    exec: sh -c '/app/tuliprox -s -p /app/config -l info 2>&1 || true'
-    exit-status: 0
-    stdout:
-      - "Log Level info"
-      - "Version:"
-      - "Build time:"
-      - "Tuliprox error: Can't read the config file"
+http:
+  http://127.0.0.1:8901:
+    status: 200
