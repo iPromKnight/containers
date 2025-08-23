@@ -21,7 +21,7 @@ tasks:
         -t {{.APP}}:{{.CHANNEL}}
         --build-arg CHANNEL={{.CHANNEL}}
         --build-arg VERSION={{.VERSION}}
-        {{if ne .PUBLIC_TOKEN ""}}--secret id=PUBLIC_TOKEN,env=PUBLIC_TOKEN{{end}}
+        {{if ne .PUBLIC_TOKEN ""}}--secret id=PUBLIC_PACKAGES_TOKEN,env=PUBLIC_PACKAGES_TOKEN{{end}}
         -f ./apps/{{.APP}}/Dockerfile .
       - >-
         ./.goss/dgoss run {{.APP}}:{{.CHANNEL}} {{if eq .BASE "true"}}tail -f /dev/null{{end}}
@@ -49,7 +49,7 @@ tasks:
         -t {{.APP}}:{{.CHANNEL}}
         --build-arg CHANNEL={{.CHANNEL}}
         --build-arg VERSION={{.VERSION}}
-        {{if ne .PUBLIC_TOKEN ""}}--secret id=PUBLIC_TOKEN,env=PUBLIC_TOKEN{{end}}
+        {{if ne .PUBLIC_TOKEN ""}}--secret id=PUBLIC_PACKAGES_TOKEN,env=PUBLIC_PACKAGES_TOKEN{{end}}
         -f ./apps/{{.APP}}/Dockerfile .
       - >-
         ./.goss/dgoss run
