@@ -21,12 +21,14 @@ tasks:
         -t {{.APP}}:{{.CHANNEL}}
         --build-arg CHANNEL={{.CHANNEL}}
         --build-arg VERSION={{.VERSION}}
+        {{if ne .PUBLIC_TOKEN ""}}--secret id=PUBLIC_TOKEN,env=PUBLIC_TOKEN{{end}}
         -f ./apps/{{.APP}}/Dockerfile .
       - >-
         ./.goss/dgoss run {{.APP}}:{{.CHANNEL}} {{if eq .BASE "true"}}tail -f /dev/null{{end}}
     vars:
       VERSION:
         sh: bash ./.github/scripts/upstream.sh "{{.APP}}" "{{.CHANNEL}}"
+      PUBLIC_TOKEN: '{{.PUBLIC_TOKEN | default ""}}'
     env:
       CONTAINER_RUNTIME: docker
       GOSS_PATH: ./.goss/goss
@@ -47,6 +49,7 @@ tasks:
         -t {{.APP}}:{{.CHANNEL}}
         --build-arg CHANNEL={{.CHANNEL}}
         --build-arg VERSION={{.VERSION}}
+        {{if ne .PUBLIC_TOKEN ""}}--secret id=PUBLIC_TOKEN,env=PUBLIC_TOKEN{{end}}
         -f ./apps/{{.APP}}/Dockerfile .
       - >-
         ./.goss/dgoss run
@@ -57,6 +60,7 @@ tasks:
     vars:
       VERSION:
         sh: bash ./.github/scripts/upstream.sh "{{.APP}}" "{{.CHANNEL}}"
+      PUBLIC_TOKEN: '{{.PUBLIC_TOKEN | default ""}}'
       SKIP_STARTUP: '{{.SKIP_STARTUP | default "false"}}'
     env:
       CONTAINER_RUNTIME: docker

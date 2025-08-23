@@ -36,6 +36,9 @@ inputs:
   token:
     required: true
     description: "GitHub token for authentication"
+  public_token:
+    required: true
+    description: "GitHub token for authentication (public packages)"
 
 runs:
   using: composite
@@ -52,7 +55,11 @@ runs:
 
     - name: Build and push image
       uses: docker/build-push-action@v6
+      env:
+        PUBLIC_TOKEN: ${{ inputs.public_token }}
       with:
+        secrets: |
+          id=PUBLIC_TOKEN,env=PUBLIC_TOKEN
         build-args: |
           VERSION=${{ inputs.upstream_version }}
           CHANNEL=${{ inputs.channel }}

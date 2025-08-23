@@ -81,6 +81,7 @@ jobs:
           upstream_version: ${{ steps.vars.outputs.chan_upstream_version }}
           dockerfile: ${{ steps.vars.outputs.chan_dockerfile }}
           tag_testing: ${{ steps.vars.outputs.chan_tag_testing }}
+          public_token: ${{ secrets.PUBLIC_PACKAGES }}
 
       - name: Run Goss tests
         if: ${{ env.DRY_RUN != 'true' && steps.vars.outputs.chan_tests_enabled == 'true' }}
@@ -104,6 +105,7 @@ jobs:
           tag_version: ${{ steps.vars.outputs.chan_tag_version }}
           platforms: ${{ steps.vars.outputs.chan_platforms }}
           token: ${{ secrets.GH_PAT }}
+          public_token: ${{ secrets.PUBLIC_PACKAGES }}
           
   notify-success:
     runs-on: ubuntu-latest
