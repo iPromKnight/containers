@@ -24,11 +24,11 @@ ARG PACKAGES_USERNAME=ipromknight
 WORKDIR /app
 COPY --from=cloner /src/code/backend/ ./backend/
 
-RUN --mount=type=secret,id=PUBLIC_TOKEN \
+RUN --mount=type=secret,id=PUBLIC_PACKAGES_TOKEN,env=PUBLIC_PACKAGES_TOKEN \
     dotnet nuget add source \
       --name Cleanuparr \
       --username "${PACKAGES_USERNAME}" \
-      --password "$(cat /run/secrets/PUBLIC_TOKEN)" \
+      --password "${PUBLIC_PACKAGES_TOKEN}" \
       --store-password-in-clear-text \
       https://nuget.pkg.github.com/Cleanuparr/index.json \
  && dotnet restore -a $TARGETARCH ./backend/Cleanuparr.Api/Cleanuparr.Api.csproj \

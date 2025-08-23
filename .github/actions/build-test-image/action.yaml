@@ -29,11 +29,9 @@ runs:
 
     - name: Build Docker image (test)
       uses: docker/build-push-action@v6
-      env:
-        PUBLIC_TOKEN: ${{ inputs.public_token }}
       with:
         secrets: |
-          id=PUBLIC_TOKEN,env=PUBLIC_TOKEN
+          "PUBLIC_PACKAGES_TOKEN=${{ inputs.public_token }}"
         build-args: |
           VERSION=${{ inputs.upstream_version }}
           CHANNEL=${{ inputs.channel }}
