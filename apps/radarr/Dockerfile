@@ -5,7 +5,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone https://github.com/elfhosted/ffprobe-shim.git /source
 
-FROM --platform=linux/amd64 golang:1.24-alpine AS builder
+FROM --platform=linux/amd64 golang:1.25-alpine AS builder
 
 # Install git for fetching dependencies
 RUN apk add --no-cache git

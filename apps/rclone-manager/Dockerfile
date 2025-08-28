@@ -7,7 +7,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b main https://github.com/iPromKnight/rclone-manager /source
 
-FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS builder
 
 ARG TARGETOS
 ARG TARGETARCH
