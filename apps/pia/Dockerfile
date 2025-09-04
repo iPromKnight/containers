@@ -7,7 +7,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION https://github.com/thrnz/docker-wireguard-pia.git /source
 
-FROM --platform=$BUILDPLATFORM golang:1.23.1-alpine AS wireguard-builder
+FROM --platform=$BUILDPLATFORM golang:1.25.1-alpine AS wireguard-builder
 
 ARG TARGETOS
 ARG TARGETARCH
