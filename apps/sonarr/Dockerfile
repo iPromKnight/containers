@@ -30,7 +30,7 @@ RUN go mod download
 RUN go build -ldflags="-linkmode external -extldflags -static" -o importarr cmd/main.go
 
 ####### and the final arr
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 # Install git for fetching dependencies
 RUN apk add --no-cache git
