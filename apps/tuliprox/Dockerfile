@@ -4,7 +4,7 @@ ARG VERSION
 
 RUN mkdir -p /app /config && \
     apk add --update --no-cache wget && \
-    wget -O /tmp/tuliprox.tgz https://github.com/euzu/tuliprox/releases/download/v${VERSION}/tuliprox_v${VERSION}_linux_x86_64.tgz && \
+    wget -O /tmp/tuliprox.tgz https://github.com/euzu/tuliprox/releases/download/v${VERSION}/tuliprox_${VERSION}_linux_x86_64.tgz && \
     tar -xzf /tmp/tuliprox.tgz -C /app --strip-components=1 && \
     chmod +x /app/tuliprox && \
     mkdir -p /app/resources && \

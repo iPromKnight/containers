@@ -1,7 +1,7 @@
 FROM alpine AS cloner
 
 ARG VERSION
-ARG DOTNET_VERSION="9.0.8"
+ARG DOTNET_VERSION="10.0.2"
 
 RUN apk add --update --no-cache git
 
@@ -47,7 +47,7 @@ RUN dotnet publish ./backend/Cleanuparr.Api/Cleanuparr.Api.csproj \
 # Final stage
 FROM ghcr.io/ipromknight/ubuntu:rolling
 
-ARG DOTNET_VERSION="9.0.8"
+ARG DOTNET_VERSION="10.0.2"
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
