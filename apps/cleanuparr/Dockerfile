@@ -9,7 +9,7 @@ RUN mkdir -p /src || exit 1 \
     && git clone --depth 1 --branch v${VERSION} https://github.com/Cleanuparr/Cleanuparr.git /src
 
 # Build Angular frontend
-FROM --platform=$BUILDPLATFORM node:18-alpine AS frontend-build
+FROM --platform=$BUILDPLATFORM node:24-alpine AS frontend-build
 WORKDIR /app
 COPY --from=cloner /src/code/frontend/package*.json ./
 RUN npm ci && npm install -g @angular/cli
