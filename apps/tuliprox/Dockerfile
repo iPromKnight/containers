@@ -16,6 +16,8 @@ RUN mkdir -p /app /config && \
 FROM ghcr.io/ipromknight/ubuntu:rolling
 
 LABEL org.opencontainers.image.title="tuliprox"
+LABEL org.opencontainers.image.version="${VERSION}"
+LABEL org.opencontainers.image.source="euzu/tuliprox"
 
 WORKDIR /app
 ENV TULIPROX_HOME="/app"
