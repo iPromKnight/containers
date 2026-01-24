@@ -17,7 +17,7 @@ COPY --from=cloner /src/code/frontend/ .
 RUN npm run build
 
 # Build .NET backend
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:9.0-bookworm-slim AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG TARGETARCH
 ARG VERSION=0.0.1
 ARG PACKAGES_USERNAME=ipromknight
@@ -61,6 +61,8 @@ RUN apt-get update \
         libssl1.1 \
         libstdc++6 \
         tzdata \
+        python3 \
+        python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
 RUN dotnet_archive=dotnet-runtime-${DOTNET_VERSION}-linux-x64.tar.gz \
@@ -74,6 +76,12 @@ RUN dotnet_archive=dotnet-runtime-${DOTNET_VERSION}-linux-x64.tar.gz \
         ${dotnet_archive}
 
 LABEL org.opencontainers.image.title="Cleanuparr"
+
+# Create virtual environment and install Apprise CLI
+ENV VIRTUAL_ENV=/opt/apprise-venv
+RUN python3 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+RUN pip install --no-cache-dir apprise==1.9.3
 
 WORKDIR /app
 COPY --from=build --chown=568:568 /app/publish .
