@@ -99,6 +99,7 @@ LABEL org.opencontainers.image.documentation="https://github.com/sirrobot01/decy
 
 # fuse3 runtime is required now that decypharr links libfuse
 RUN apk add --no-cache fuse3 && \
+    ln -s /usr/bin/fusermount3 /usr/bin/fusermount \
     echo "user_allow_other" >> /etc/fuse.conf
 
 # Copy binaries
