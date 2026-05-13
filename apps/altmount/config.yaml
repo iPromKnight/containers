@@ -1,0 +1,45 @@
+webdav:
+  port: 8080
+  user: 'usenet'
+  password: 'usenet'
+  host: ''
+
+api:
+  prefix: '/api'
+
+auth:
+  login_required: false
+
+database:
+  path: '/config/altmount.db'
+
+metadata:
+  root_path: '/config/metadata'
+
+rclone:
+  mount_enabled: false
+
+import:
+  import_strategy: 'NONE'
+  skip_health_check: true
+
+sabnzbd:
+  enabled: false
+
+arrs:
+  enabled: false
+
+log:
+  file: '/config/altmount.log'
+  level: 'info'
+
+providers:
+  - id: 1
+    host: 'example.invalid'
+    port: 563
+    username: 'test'
+    password: 'test'
+    max_connections: 1
+    tls: true
+    enabled: false
+    is_backup_provider: false
