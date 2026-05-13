@@ -101,6 +101,9 @@ COPY --from=rclone-extractor  --chown=568:568 /rclone   /usr/local/bin/rclone
 COPY --from=dirsetup          --chown=568:568 /app      /app
 COPY --from=dirsetup          --chown=568:568 /config   /config
 
+# Frontend (served from /app/frontend/dist by altmount at runtime)
+COPY --from=frontend-builder  --chown=568:568 /app/frontend/dist /app/frontend/dist
+
 ENV LOG_PATH=/config/logs
 ENV PORT=8080
 ENV HOST=0.0.0.0
