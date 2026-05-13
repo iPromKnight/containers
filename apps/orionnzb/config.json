@@ -1,0 +1,22 @@
+{
+  "orionoid": {
+    "appKey": "TELDDHP84ND8GURAPJLUDBLQMULEAAPG",
+    "userKey": "TEST_USER_KEY_FOR_GOSS"
+  },
+  "server": {
+    "port": 3000,
+    "host": "0.0.0.0",
+    "baseUrl": "http://localhost:3000"
+  },
+  "newznab": {
+    "apiKey": "TEST_NEWZNAB_API_KEY",
+    "serverName": "OrionZB",
+    "serverDescription": "Orionoid Newznab API"
+  },
+  "features": {
+    "cacheTTL": 86400,
+    "maxResults": 100,
+    "defaultResults": 50,
+    "preferredLanguages": "en"
+  }
+}
