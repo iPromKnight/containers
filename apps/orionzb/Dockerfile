@@ -45,13 +45,13 @@ RUN apk add --no-cache nodejs
 
 WORKDIR /app
 
-# Copy compiled JS + pruned production node_modules
 COPY --from=builder --chown=568:568 /app/dist          /app/dist
 COPY --from=builder --chown=568:568 /app/node_modules  /app/node_modules
 COPY --from=builder --chown=568:568 /app/package.json  /app/package.json
 
-# Directory scaffold for runtime state / config
-RUN install -d -o 568 -g 568 /config
+# Bake the config symlink at build time so 568 doesn't need to write to /app
+RUN ln -sfn /config/config.json /app/config.json && \
+    install -d -o 568 -g 568 /config
 
 ENV NODE_ENV=production
 ENV SERVER_PORT=3000
@@ -60,7 +60,6 @@ EXPOSE 3000
 
 USER 568
 
-# Seed config for goss/web tests — placeholder API keys so validateConfig() passes
 COPY --chown=568:568 apps/orionzb/config.json /config/config.json
 
 COPY --chmod=0755 apps/orionzb/promknight-entrypoint.sh /promknight-entrypoint.sh
