@@ -17,8 +17,7 @@ COPY --from=cloner /source/src/houndarr/templates/  ./src/houndarr/templates/
 
 RUN pnpm run build-css
 
-# Stage 2: build the Python venv (Python 3.13 from deadsnakes on Focal)
-# Doing the heavy lifting in a builder so the runtime image stays tidy.
+# Stage 2: build the Python venv (Python 3.12 from deadsnakes on Focal)
 FROM --platform=$BUILDPLATFORM ubuntu:20.04 AS python-build
 
 ARG DEBIAN_FRONTEND=noninteractive
@@ -29,23 +28,20 @@ RUN apt-get update && \
     add-apt-repository -y ppa:deadsnakes/ppa && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-        python3.13 python3.13-venv python3.13-dev \
+        python3.12 python3.12-venv python3.12-dev \
         build-essential libffi-dev libssl-dev && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-COPY --from=cloner /source/pyproject.toml /source/uv.lock /source/VERSION /source/hatch_build.py ./
+COPY --from=cloner /source/pyproject.toml /source/VERSION /source/requirements.txt ./
 
-# Create a Python 3.13 virtualenv, install uv into it, then export and pip-install
-# the resolved deps. Wheel-only install keeps build time short.
+# Wheel-only install where possible; falls back to source build for anything
+# without a manylinux wheel.
 RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
-    --mount=type=cache,target=/root/.cache/uv,sharing=locked \
-    python3.13 -m venv /opt/venv && \
-    /opt/venv/bin/pip install --upgrade pip uv && \
-    /opt/venv/bin/uv export --frozen --no-hashes --no-emit-project --no-dev -o /tmp/requirements.txt && \
-    /opt/venv/bin/pip install --no-cache-dir -r /tmp/requirements.txt && \
-    rm /tmp/requirements.txt
+    python3.12 -m venv /opt/venv && \
+    /opt/venv/bin/pip install --upgrade pip && \
+    /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
 
 # Final stage — your base image with its entrypoint chain
 FROM ghcr.io/ipromknight/ubuntu:rolling
@@ -67,7 +63,7 @@ RUN apt-get update && \
     add-apt-repository -y ppa:deadsnakes/ppa && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-        python3.13 python3.13-venv libpython3.13 curl && \
+        python3.12 python3.12-venv libpython3.12 curl && \
     apt-get remove -y software-properties-common gnupg && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
