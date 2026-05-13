@@ -6,6 +6,8 @@ webdav:
 
 api:
   prefix: '/api'
+  allowed_origins:
+    - 'http://localhost:8080'
 
 auth:
   login_required: false
