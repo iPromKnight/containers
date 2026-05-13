@@ -11,7 +11,7 @@ ARG CHANNEL=dev
 
 WORKDIR /app
 
-RUN npm install -g pnpm@latest
+RUN npm install -g pnpm@9
 
 COPY --from=cloner /source/package.json /source/pnpm-lock.yaml* /source/tsconfig.json ./
 
