@@ -1,5 +1,5 @@
 process:
-  python3.12:
+  python:
     running: true
 
 http:

@@ -17,38 +17,41 @@ COPY --from=cloner /source/src/houndarr/templates/  ./src/houndarr/templates/
 
 RUN pnpm run build-css
 
-# Stage 2: build the Python venv (Python 3.12 from deadsnakes on Focal)
-FROM --platform=$BUILDPLATFORM ubuntu:20.04 AS python-build
+# Stage 2: build the Python venv using uv's standalone Python
+FROM --platform=$BUILDPLATFORM ubuntu:24.04 AS python-build
 
 ARG DEBIAN_FRONTEND=noninteractive
 
+# uv handles the Python install itself — we just need curl + ca-certs + build tools
+# (for wheels that compile from source: cryptography, bcrypt, etc.)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        software-properties-common ca-certificates gnupg curl && \
-    add-apt-repository -y ppa:deadsnakes/ppa && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
-        python3.12 python3.12-venv python3.12-dev \
-        build-essential libffi-dev libssl-dev && \
+        ca-certificates curl build-essential libffi-dev libssl-dev && \
     rm -rf /var/lib/apt/lists/*
+
+# Pin uv version for reproducibility. Standalone binary, no python required to install.
+ADD https://github.com/astral-sh/uv/releases/download/0.5.13/uv-x86_64-unknown-linux-gnu.tar.gz /tmp/uv.tar.gz
+RUN tar -xzf /tmp/uv.tar.gz -C /tmp && \
+    mv /tmp/uv-x86_64-unknown-linux-gnu/uv /usr/local/bin/uv && \
+    rm -rf /tmp/uv.tar.gz /tmp/uv-x86_64-unknown-linux-gnu
 
 WORKDIR /app
 
 COPY --from=cloner /source/pyproject.toml /source/VERSION /source/requirements.txt ./
 
-# Wheel-only install where possible; falls back to source build for anything
-# without a manylinux wheel.
-RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
-    python3.12 -m venv /opt/venv && \
-    /opt/venv/bin/pip install --upgrade pip && \
-    /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
+# uv installs Python 3.12 standalone into the venv it creates, then installs deps.
+# UV_PYTHON_INSTALL_DIR pins where the interpreter lives so we can copy it later.
+ENV UV_PYTHON_INSTALL_DIR=/opt/python
+
+RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
+    uv venv --python 3.12 /opt/venv && \
+    uv pip install --python /opt/venv/bin/python --no-cache-dir -r requirements.txt
 
 # Final stage — your base image with its entrypoint chain
 FROM ghcr.io/ipromknight/ubuntu:rolling
 
 ARG VERSION=0.0.0
 ARG CHANNEL=dev
-ARG DEBIAN_FRONTEND=noninteractive
 
 LABEL version="${VERSION}-${CHANNEL}"
 LABEL org.opencontainers.image.source="https://github.com/av1155/houndarr"
@@ -57,15 +60,10 @@ LABEL org.opencontainers.image.authors="av1155"
 LABEL org.opencontainers.image.documentation="https://github.com/av1155/houndarr/blob/main/README.md"
 LABEL org.opencontainers.image.licenses="AGPL-3.0-only"
 
+# Runtime only needs curl for healthcheck — the Python interpreter is bundled
+# inside /opt/python from the standalone build.
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        software-properties-common ca-certificates gnupg && \
-    add-apt-repository -y ppa:deadsnakes/ppa && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
-        python3.12 python3.12-venv libpython3.12 curl && \
-    apt-get remove -y software-properties-common gnupg && \
-    apt-get autoremove -y && \
+    apt-get install -y --no-install-recommends curl ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -77,6 +75,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+# Bring in the standalone Python interpreter, the venv (with all houndarr deps),
+# and the houndarr source.
+COPY --from=python-build --chown=568:568 /opt/python                  /opt/python
 COPY --from=python-build --chown=568:568 /opt/venv                    /opt/venv
 COPY --from=cloner       --chown=568:568 /source/src/                 ./src/
 COPY --from=cloner       --chown=568:568 /source/VERSION              ./

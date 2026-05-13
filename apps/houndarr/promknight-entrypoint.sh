@@ -22,5 +22,5 @@ cat << "EOF"
 EOF
 
 exec \
-  /opt/venv/bin/python3.12 -m houndarr \
+  /opt/venv/bin/python -m houndarr \
     --data-dir /data
