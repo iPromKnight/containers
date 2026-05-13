@@ -5,5 +5,5 @@ process:
     running: true
 
 http:
-  http://localhost:8080:
+  http://localhost:8080/live:
     status: 200
