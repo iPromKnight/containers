@@ -1,32 +1,29 @@
 FROM alpine AS cloner
 ARG VERSION
 RUN apk add --update --no-cache git && \
-    git clone -b $VERSION https://github.com/Gaisberg/orionzb.git /source
+    git clone -b $VERSION https://github.com/iPromKnight/orionzb.git /source
 
-# Frontend/backend are all node — single multi-stage build, no cross-compile pain
-FROM --platform=$BUILDPLATFORM node:20-alpine AS builder
+# Pure Go (no CGO) — pinned to BUILDPLATFORM so Go runs natively, cross via GOOS/GOARCH
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS builder
 
+ARG TARGETOS
+ARG TARGETARCH
 ARG VERSION=0.0.0
 ARG CHANNEL=dev
 
 WORKDIR /app
 
-RUN npm install -g pnpm@9
+COPY --from=cloner /source/go.mod /source/go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download -x
 
-COPY --from=cloner /source/package.json /source/pnpm-lock.yaml* /source/tsconfig.json ./
+COPY --from=cloner /source/. .
 
-# Install all deps (incl. dev for tsc)
-RUN --mount=type=cache,target=/root/.local/share/pnpm/store,sharing=locked \
-    pnpm install --frozen-lockfile
-
-COPY --from=cloner /source/src ./src
-
-# Compile TypeScript -> dist/
-RUN pnpm run build
-
-# Prune dev deps from node_modules so the final image only ships runtime deps
-RUN --mount=type=cache,target=/root/.local/share/pnpm/store,sharing=locked \
-    pnpm prune --prod
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+    go build -trimpath -ldflags="-w -s" \
+    -o /orionzb ./cmd/orionzb
 
 # Final image — same base family as decypharr/altmount
 FROM ghcr.io/ipromknight/alpine:rolling
@@ -35,27 +32,20 @@ ARG VERSION=0.0.0
 ARG CHANNEL=dev
 
 LABEL version="${VERSION}-${CHANNEL}"
-LABEL org.opencontainers.image.source="https://github.com/Gaisberg/orionzb"
+LABEL org.opencontainers.image.source="https://github.com/iPromKnight/orionzb"
 LABEL org.opencontainers.image.title="orionzb"
-LABEL org.opencontainers.image.authors="Gaisberg"
-LABEL org.opencontainers.image.documentation="https://github.com/Gaisberg/orionzb/blob/main/README.md"
-
-# Node runtime — alpine ships it as `nodejs`
-RUN apk add --no-cache nodejs
+LABEL org.opencontainers.image.authors="iPromKnight"
+LABEL org.opencontainers.image.documentation="https://github.com/iPromKnight/orionzb/blob/main/README.md"
 
 WORKDIR /app
 
-COPY --from=builder --chown=568:568 /app/dist          /app/dist
-COPY --from=builder --chown=568:568 /app/node_modules  /app/node_modules
-COPY --from=builder --chown=568:568 /app/package.json  /app/package.json
+COPY --from=builder --chown=568:568 /orionzb /usr/bin/orionzb
 
-# Bake the config symlink at build time so 568 doesn't need to write to /app
+# Bake the config symlink at build time so 568 doesn't need to write to /app.
+# orionzb's config.Load() reads ./config.json from CWD if present.
 RUN ln -sfn /config/config.json /app/config.json && \
     install -d -o 568 -g 568 /config
 
-ENV NODE_ENV=production
-ENV SERVER_PORT=3000
-ENV SERVER_HOST=0.0.0.0
 EXPOSE 3000
 
 USER 568

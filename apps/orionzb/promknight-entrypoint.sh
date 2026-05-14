@@ -22,4 +22,4 @@ cat << "EOF"
 EOF
 
 cd /app
-exec node dist/index.js
+exec /usr/bin/orionzb
