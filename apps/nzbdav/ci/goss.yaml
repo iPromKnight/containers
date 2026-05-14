@@ -1,0 +1,14 @@
+---
+# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#process
+process:
+  NzbWebDAV:
+    running: true
+  node:
+    running: true
+
+http:
+  http://localhost:8080/health:
+    status: 200
+  http://localhost:3000/:
+    # SSR frontend; either serves the page or redirects to /login on cold start.
+    status: 200
