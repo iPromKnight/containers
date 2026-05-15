@@ -1,9 +1,10 @@
 FROM alpine AS cloner
 ARG VERSION
-# VERSION is "dev-<short-sha>" produced by ci/latest.sh; check out that commit.
+# VERSION is "main-<short-sha>" produced by ci/latest.sh; strip the prefix
+# and check out that commit.
 RUN apk add --update --no-cache git && \
     git clone https://github.com/javi11/altmount.git /source && \
-    git -C /source checkout "${VERSION#dev-}"
+    git -C /source checkout "${VERSION#main-}"
 
 # xx provides cross-compilation toolchains for CGO builds
 FROM --platform=$BUILDPLATFORM tonistiigi/xx AS xx
