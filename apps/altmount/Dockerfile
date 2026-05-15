@@ -4,7 +4,14 @@ ARG VERSION
 # and check out that commit.
 RUN apk add --update --no-cache git && \
     git clone https://github.com/javi11/altmount.git /source && \
-    git -C /source checkout "${VERSION#main-}"
+    git -C /source checkout "${VERSION#main-}" && \
+    # Patch the nzbdav importer to include SubType=201 (file-inside-release-folder)
+    # entries in addition to SubType=203 (standalone-release-file). Some nzbdav DBs
+    # store releases as folders (101) containing per-file children (201), and the
+    # importer's stock query (SubType = 203) misses them entirely, silently
+    # dropping the bulk of the library on import.
+    sed -i 's/d\.SubType = 203/d.SubType IN (201, 203)/' /source/internal/nzbdav/parser.go && \
+    grep -n 'd.SubType IN (201, 203)' /source/internal/nzbdav/parser.go
 
 # xx provides cross-compilation toolchains for CGO builds
 FROM --platform=$BUILDPLATFORM tonistiigi/xx AS xx
