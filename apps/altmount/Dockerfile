@@ -1,7 +1,9 @@
 FROM alpine AS cloner
 ARG VERSION
+# VERSION is "dev-<short-sha>" produced by ci/latest.sh; check out that commit.
 RUN apk add --update --no-cache git && \
-    git clone -b $VERSION https://github.com/javi11/altmount.git /source
+    git clone https://github.com/javi11/altmount.git /source && \
+    git -C /source checkout "${VERSION#dev-}"
 
 # xx provides cross-compilation toolchains for CGO builds
 FROM --platform=$BUILDPLATFORM tonistiigi/xx AS xx
