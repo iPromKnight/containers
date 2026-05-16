@@ -16,6 +16,10 @@
 #   WATCHDOG_RECOVERY_SLEEP     seconds of silence after a cycle, default 30
 #   WATCHDOG_TIMEOUT            connect timeout in seconds, default 5
 #   WATCHDOG_CONTROL_URL        Gluetun control server, default http://localhost:8000
+#   GLUETUN_CONTROL_APIKEY      X-API-Key sent on the control-server PUTs. Required
+#                               when the control server's config.toml uses auth = "apikey",
+#                               which we do to silence Gluetun's deprecation WARN.
+#                               Optional otherwise.
 
 set -eu
 
@@ -25,6 +29,15 @@ MAX_FAILS="${WATCHDOG_MAX_FAILS:-3}"
 RECOVERY_SLEEP="${WATCHDOG_RECOVERY_SLEEP:-30}"
 TIMEOUT="${WATCHDOG_TIMEOUT:-5}"
 CONTROL_URL="${WATCHDOG_CONTROL_URL:-http://localhost:8000}"
+APIKEY="${GLUETUN_CONTROL_APIKEY:-}"
+
+# Build the curl auth-header arg once. Empty when no key — keeps the
+# control-server calls clean for "none" auth setups.
+if [[ -n "$APIKEY" ]]; then
+    AUTH_HEADER=(-H "X-API-Key: $APIKEY")
+else
+    AUTH_HEADER=()
+fi
 
 # Split host:port — /dev/tcp/<host>/<port> needs them separately.
 HOST="${TARGET%:*}"
@@ -44,11 +57,11 @@ probe() {
 
 cycle_gluetun() {
     echo "watchdog: cycling Gluetun via $CONTROL_URL"
-    curl -fsS -X PUT -H 'Content-Type: application/json' \
+    curl -fsS -X PUT "${AUTH_HEADER[@]}" -H 'Content-Type: application/json' \
         -d '{"status":"stopped"}' \
         "$CONTROL_URL/v1/vpn/status" || true
     sleep 2
-    curl -fsS -X PUT -H 'Content-Type: application/json' \
+    curl -fsS -X PUT "${AUTH_HEADER[@]}" -H 'Content-Type: application/json' \
         -d '{"status":"running"}' \
         "$CONTROL_URL/v1/vpn/status" || true
 }

@@ -10,6 +10,7 @@ RUN apk --no-cache add bash bind-tools curl jq
 COPY --chmod=0755 ./apps/gluetun/promknight-entrypoint.sh /promknight-entrypoint.sh
 COPY --chmod=0755 ./apps/gluetun/pick-servers.sh /pick-servers.sh
 COPY --chmod=0755 ./apps/gluetun/watchdog.sh /watchdog.sh
+COPY --chmod=0755 ./apps/gluetun/probe-status.sh /probe-status.sh
 
 # Make /promknight-entrypoint.sh the default ENTRYPOINT so the helmreleases
 # don't need to override `command:` to invoke it. The script execs into
