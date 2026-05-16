@@ -11,6 +11,7 @@ COPY --chmod=0755 ./apps/gluetun/promknight-entrypoint.sh /promknight-entrypoint
 COPY --chmod=0755 ./apps/gluetun/pick-servers.sh /pick-servers.sh
 COPY --chmod=0755 ./apps/gluetun/watchdog.sh /watchdog.sh
 COPY --chmod=0755 ./apps/gluetun/probe-status.sh /probe-status.sh
+COPY --chmod=0755 ./apps/gluetun/probe-egress.sh /probe-egress.sh
 
 # Make /promknight-entrypoint.sh the default ENTRYPOINT so the helmreleases
 # don't need to override `command:` to invoke it. The script execs into
