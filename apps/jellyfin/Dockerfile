@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS deovr-plugin-builder
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS deovr-plugin-builder
 
 RUN apt-get update && \
     apt-get install -y \
