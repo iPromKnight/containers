@@ -4,8 +4,13 @@
 # before the main entrypoint sources /shared/env.
 #
 # Inputs (env):
+#   PICKER_DISABLED    if non-empty, skip entirely. Use when you've set
+#                      SERVER_COUNTRIES to something other than Netherlands
+#                      and want to bypass the NL-specific pinning.
 #   PICKER_CACHE_DIR   directory containing the cache, default /gluetun/proton
-#   PICKER_COUNTRY     ExitCountry to filter on, default NL
+#   PICKER_COUNTRY     ExitCountry to filter on. Auto-derived from
+#                      SERVER_COUNTRIES if that's set to a single country
+#                      (mapped via known names), else defaults to NL.
 #   PICKER_TIER        Proton Tier to require (2=paid Plus), default 2
 #   PICKER_TOP_N       how many lowest-load servers to keep, default 10
 #   PICKER_P2P_ONLY    if "true" (default), require the P2P feature bit
@@ -22,8 +27,33 @@
 
 set -eu
 
+# Escape hatch: explicit disable
+if [ -n "${PICKER_DISABLED:-}" ]; then
+    echo "pick-servers: PICKER_DISABLED is set — skipping, SERVER_COUNTRIES will be used as-is"
+    exit 0
+fi
+
+# Auto-skip when SERVER_COUNTRIES doesn't match our pinned country. The picker
+# only knows about the Proton cache's country codes (NL, CH, DE, …); if you've
+# set SERVER_COUNTRIES to a name that doesn't map cleanly, the safest thing is
+# to skip the pin and let Gluetun handle country filtering on its own.
+SERVER_COUNTRIES_RAW="${SERVER_COUNTRIES:-}"
+case "$(echo "$SERVER_COUNTRIES_RAW" | tr 'A-Z' 'a-z')" in
+    ""|"netherlands"|"nl")     auto_country="NL" ;;
+    "switzerland"|"ch")        auto_country="CH" ;;
+    "germany"|"de")            auto_country="DE" ;;
+    "sweden"|"se")             auto_country="SE" ;;
+    "iceland"|"is")            auto_country="IS" ;;
+    "united kingdom"|"uk"|"gb") auto_country="UK" ;;
+    "united states"|"us"|"usa") auto_country="US" ;;
+    *)
+        echo "pick-servers: SERVER_COUNTRIES='$SERVER_COUNTRIES_RAW' not mapped — skipping, SERVER_COUNTRIES will be used as-is"
+        exit 0
+        ;;
+esac
+
 CACHE_DIR="${PICKER_CACHE_DIR:-/gluetun/proton}"
-COUNTRY="${PICKER_COUNTRY:-NL}"
+COUNTRY="${PICKER_COUNTRY:-$auto_country}"
 TIER="${PICKER_TIER:-2}"
 TOP_N="${PICKER_TOP_N:-10}"
 P2P_ONLY="${PICKER_P2P_ONLY:-true}"
