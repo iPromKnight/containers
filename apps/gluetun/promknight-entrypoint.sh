@@ -59,6 +59,17 @@ if [[ -x /watchdog.sh ]] && [[ -z "${WATCHDOG_DISABLED:-}" ]]; then
     echo "watchdog launched in background (pid $!)"
 fi
 
+# Launch the startup quality check in the background. After the tunnel is up,
+# measures TCP retransmit rate during a small download. If the rate is too
+# high (e.g. Gluetun picked a degraded Proton endpoint), cycles up to
+# QUALITY_CHECK_MAX_CYCLES times until a healthy endpoint is found. Then
+# exits silently. Doesn't run again — once we're past startup, the watchdog
+# handles ongoing health monitoring.
+if [[ -x /quality-check.sh ]] && [[ -z "${QUALITY_CHECK_DISABLED:-}" ]]; then
+    /quality-check.sh 2>&1 | sed 's/^/[quality-check] /' &
+    echo "quality-check launched in background (pid $!)"
+fi
+
 # If we're in "sleep mode", then don't actually, just do nothing (useful when we control how a pod will run based on an env var)
 if [[ ! -z "$GLUETUN_DISABLED" ]];
 then
