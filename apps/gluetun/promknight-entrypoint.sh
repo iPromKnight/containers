@@ -47,13 +47,14 @@ if [[ -f /shared/env ]]; then
     source /shared/env
 fi
 
-# Launch the watchdog in the background. It probes WATCHDOG_PROBE_URL through
-# the tunnel and cycles Gluetun via the control server on repeated failures.
-# Lives in this container so we don't need a separate sidecar — when Gluetun
-# (which becomes PID 1 below via exec) exits, the watchdog dies with it.
-# Skip when WATCHDOG_PROBE_URL is unset (e.g. PIA-based deployments that
-# don't want a Proton-targeted watchdog) or WATCHDOG_DISABLED is truthy.
-if [[ -x /watchdog.sh ]] && [[ -n "${WATCHDOG_PROBE_URL:-}" ]] && [[ -z "${WATCHDOG_DISABLED:-}" ]]; then
+# Launch the watchdog in the background. It TCP-probes WATCHDOG_PROBE_TARGET
+# through the tunnel via bash's /dev/tcp pseudo-device and cycles Gluetun via
+# the control server on repeated failures. Lives in this container so we don't
+# need a separate sidecar — when Gluetun (which becomes PID 1 below via exec)
+# exits, the watchdog dies with it.
+# Skip when WATCHDOG_DISABLED is truthy (escape hatch for debugging or for
+# PIA-based deployments that don't need the cycling behaviour).
+if [[ -x /watchdog.sh ]] && [[ -z "${WATCHDOG_DISABLED:-}" ]]; then
     /watchdog.sh 2>&1 | sed 's/^/[watchdog] /' &
     echo "watchdog launched in background (pid $!)"
 fi
