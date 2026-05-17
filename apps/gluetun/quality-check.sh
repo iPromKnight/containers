@@ -62,35 +62,53 @@ cycle_gluetun() {
         "$CONTROL_URL/v1/vpn/status" >/dev/null 2>&1 || true
 }
 
+# Read the current TCP MIB OutSegs / RetransSegs counters. Outputs space-
+# separated "out retrans" to stdout. We grab the line, split it into an
+# array (defined positions in `man 5 proc.5` / RFC 1213-style ordering),
+# and pick the two columns we care about. Robust to extra trailing fields.
+#
+# /proc/net/snmp Tcp line order: RtoAlgorithm RtoMin RtoMax MaxConn
+#   ActiveOpens PassiveOpens AttemptFails EstabResets CurrEstab InSegs
+#   OutSegs RetransSegs InErrs OutRsts InCsumErrors
+# So OutSegs is index 11, RetransSegs is index 12 (1-based after "Tcp:").
+read_tcp_counters() {
+    local line
+    line=$(grep -E '^Tcp:' /proc/net/snmp | tail -1)
+    # Strip leading "Tcp: " and split into positional args
+    set -- ${line#Tcp: }
+    # $11 = OutSegs, $12 = RetransSegs
+    echo "${11} ${12}"
+}
+
 # Measure retransmit rate via /proc/net/snmp delta during a small download.
 # This is cheaper and more accurate than capturing with tcpdump + tshark:
 # the kernel maintains a running counter of TCP retransmits, we just read
 # the delta over a single curl execution.
+#
+# IMPORTANT: stdout returns ONLY the integer percent. All diagnostic
+# messages go to stderr — the caller does pct=$(measure_retransmit_pct)
+# and would otherwise capture our error strings as bogus "numbers".
 measure_retransmit_pct() {
-    local before_retrans before_out after_retrans after_out
+    local before_out before_retrans after_out after_retrans
     local out_delta retrans_delta pct
 
-    # Snapshot before
-    read -r _ _ _ _ _ _ _ _ _ _ before_out before_retrans _ <<< \
-        "$(grep -E '^Tcp:' /proc/net/snmp | tail -1)"
+    read -r before_out before_retrans < <(read_tcp_counters)
 
     # Do the download — discard body, just want to push packets through
     if ! curl -fsS --max-time "$CURL_TIMEOUT" -o /dev/null "$URL" 2>/dev/null; then
-        echo "quality-check: download failed (curl error) — treating as bad"
+        echo "download failed (curl error) — treating as bad" >&2
         echo "100"
         return
     fi
 
-    # Snapshot after
-    read -r _ _ _ _ _ _ _ _ _ _ after_out after_retrans _ <<< \
-        "$(grep -E '^Tcp:' /proc/net/snmp | tail -1)"
+    read -r after_out after_retrans < <(read_tcp_counters)
 
     out_delta=$((after_out - before_out))
     retrans_delta=$((after_retrans - before_retrans))
 
     # Avoid divide-by-zero if curl somehow sent zero packets
-    if [[ "$out_delta" -lt 100 ]]; then
-        echo "quality-check: too few packets (out_delta=$out_delta) — inconclusive, treating as ok"
+    if (( out_delta < 100 )); then
+        echo "too few packets (out_delta=${out_delta}) — inconclusive, treating as ok" >&2
         echo "0"
         return
     fi
