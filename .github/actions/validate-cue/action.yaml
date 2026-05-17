@@ -10,7 +10,7 @@ runs:
   using: composite
   steps:
     - name: Install CUE
-      uses: cue-lang/setup-cue@v1.0.0-alpha.2
+      uses: cue-lang/setup-cue@v1.0.1
 
     - name: Validate metadata
       shell: bash
