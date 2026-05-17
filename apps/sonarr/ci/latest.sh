@@ -1,13 +1,6 @@
 #!/usr/bin/env bash
 channel=$1
-
-if [[ "${channel}" == "dev" ]]; then
-    # fake it
-    version=$(curl -sfL "https://services.sonarr.tv/v1/download/main?version=4.0" | jq --raw-output '.version')
-else
-    version=$(curl -sfL "https://services.sonarr.tv/v1/download/${channel}?version=4.0" | jq --raw-output '.version')
-fi
-
-version="${version#*v}"
-version="${version#*release-}"
+version=$(curl -sfL "https://api.github.com/repos/realzombee/Sonarr/releases?per_page=1" | jq --raw-output '.[0].tag_name')
+version="${version#v}"
+version="${version#release-}"
 printf "%s" "${version}"
