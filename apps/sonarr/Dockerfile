@@ -25,13 +25,19 @@ RUN \
         'linux/arm64') export ARCH='arm64' ;; \
     esac \
     && \
-    curl -fsSL "https://services.sonarr.tv/v1/update/${SONARR__BRANCH}/download?version=${VERSION}&os=linuxmusl&runtime=netcore&arch=${ARCH}" \
+    ASSET_URL=$(curl -fsSL "https://api.github.com/repos/realzombee/Sonarr/releases/tags/v${VERSION}" \
+        | jq -r --arg suffix "linux-musl-${ARCH}.tar.gz" \
+            '.assets[] | select(.name | endswith($suffix)) | .browser_download_url') \
+    && \
+    [ -n "${ASSET_URL}" ] || { echo "No matching asset for v${VERSION} ${ARCH}"; exit 1; } \
+    && \
+    curl -fsSL "${ASSET_URL}" \
         | tar xzf - -C /app --strip-components=1 \
     && \
     rm -rf \
         /app/Sonarr.Update \
     && \
-    printf "UpdateMethod=docker\nBranch=%s\nPackageVersion=%s\nPackageAuthor=[ipromknight](https://github.com/ipromknight)" "${SONARR__BRANCH}" "${VERSION}" > /app/package_info \
+    printf "UpdateMethod=docker\nBranch=%s\nPackageVersion=%s\nPackageAuthor=[realzombee](https://github.com/realzombee)" "${SONARR__BRANCH}" "${VERSION}" > /app/package_info \
     && chown -R root:root /app \
     && chmod -R 755 /app \
     && rm -rf /tmp/*
@@ -46,3 +52,4 @@ COPY ./apps/sonarr/config.xml.tmpl /app/config.xml.tmpl
 COPY --chmod=0755 ./apps/sonarr/promknight-entrypoint.sh /promknight-entrypoint.sh
 
 LABEL org.opencontainers.image.title="${SONARR__INSTANCE_NAME} (${SONARR__BRANCH})"
+LABEL org.opencontainers.image.source="https://github.com/realzombee/Sonarr"
