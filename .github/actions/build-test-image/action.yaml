@@ -28,7 +28,7 @@ runs:
       uses: docker/setup-buildx-action@v3
 
     - name: Build Docker image (test)
-      uses: docker/build-push-action@v6
+      uses: docker/build-push-action@v7
       with:
         secrets: |
           "PUBLIC_PACKAGES_TOKEN=${{ inputs.public_token }}"
