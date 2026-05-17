@@ -116,6 +116,7 @@ EXPOSE 8080
 
 USER 568
 
+
 # Seed config for goss/web tests
 COPY --chown=568:568 apps/altmount/config.yaml /config/config.yaml
 
