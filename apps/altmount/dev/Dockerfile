@@ -1,9 +1,5 @@
 FROM alpine AS cloner
 ARG VERSION
-# VERSION is "<channel>-<short-sha>" produced by ci/latest.sh; strip the prefix
-# and check out that commit from the dev fork. The dev fork carries the proper
-# fix for the nzbdav SubType=201 + missing-NzbNames discovery bug in source, so
-# no sed patching is needed here (unlike the main-channel Dockerfile).
 RUN apk add --update --no-cache git && \
     git clone https://github.com/iPromKnight/altmount.git /source && \
     git -C /source checkout "${VERSION#*-}"
