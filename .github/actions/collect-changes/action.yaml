@@ -1,5 +1,5 @@
 name: "Collect changes"
-description: "Collects and stores changed files/containers"
+description: "Collects changed files and produces a precise {app, channel} build matrix"
 
 outputs:
   changesDetected:
@@ -9,8 +9,14 @@ outputs:
     description: "A list of the files changed"
     value: ${{ steps.filter.outputs.addedOrModified_files }}
   addedOrModifiedImages:
-    description: "A list of the containers changed"
-    value: ${{ steps.filter-containers.outputs.addedOrModifiedImages }}
+    description: "Unique list of apps that had any change (kept for backwards-compat)"
+    value: ${{ steps.scope.outputs.addedOrModifiedImages }}
+  matrix:
+    description: "JSON array of {app, channel} pairs to build"
+    value: ${{ steps.scope.outputs.matrix }}
+  images:
+    description: "Pretty list of app:channel pairs (for notifications)"
+    value: ${{ steps.scope.outputs.images }}
 
 runs:
   using: "composite"
@@ -24,12 +30,82 @@ runs:
           addedOrModified:
             - added|modified: 'apps/*/**'
 
-    - name: Collect changed containers
-      if: |
-        steps.filter.outputs.addedOrModified == 'true'
-      id: filter-containers
+    - name: Scope changes to channels
+      if: steps.filter.outputs.addedOrModified == 'true'
+      id: scope
       shell: bash
       run: |
+        set -euo pipefail
+
+        # Rule: for each changed path under apps/<app>/...
+        #   - if the second segment matches a channel name declared in
+        #     apps/<app>/metadata.json, scope the rebuild to that channel only.
+        #   - otherwise treat the change as shared (root Dockerfile, config.yaml,
+        #     promknight-entrypoint.sh, ci/*) and rebuild every channel for
+        #     that app.
+        #
+        # The matrix output is the deduplicated set of {app, channel} pairs.
+
         PATHS='${{ steps.filter.outputs.addedOrModified_files }}'
-        OUTPUT=$(echo "$PATHS" | jq --raw-output -c 'map(. |= split("/")[1]) | unique')
-        echo "addedOrModifiedImages=$OUTPUT" >> "$GITHUB_OUTPUT"
+
+        declare -A pairs         # key: "app|channel" → "1" — dedup set
+        declare -A apps_touched  # key: app → "1" — for backwards-compat output
+
+        while read -r path; do
+          [[ -z "$path" ]] && continue
+
+          IFS='/' read -ra parts <<< "$path"
+          # Expected layout: apps/<app>/<segment>/...
+          app="${parts[1]:-}"
+          [[ -z "$app" ]] && continue
+
+          metadata="./apps/${app}/metadata.json"
+          [[ ! -f "$metadata" ]] && continue
+
+          apps_touched["$app"]=1
+
+          mapfile -t channels < <(jq -r '.channels[].name' "$metadata")
+          [[ ${#channels[@]} -eq 0 ]] && continue
+
+          segment="${parts[2]:-}"
+          matched=""
+          for c in "${channels[@]}"; do
+            if [[ "$segment" == "$c" ]]; then
+              matched="$c"
+              break
+            fi
+          done
+
+          if [[ -n "$matched" ]]; then
+            pairs["${app}|${matched}"]=1
+          else
+            for c in "${channels[@]}"; do
+              pairs["${app}|${c}"]=1
+            done
+          fi
+        done < <(echo "$PATHS" | jq -r '.[]')
+
+        if [[ ${#pairs[@]} -eq 0 ]]; then
+          echo "matrix=[]"                 >> "$GITHUB_OUTPUT"
+          echo "images=[]"                 >> "$GITHUB_OUTPUT"
+          echo "addedOrModifiedImages=[]"  >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        declare -a items=()
+        for key in "${!pairs[@]}"; do
+          app="${key%%|*}"
+          channel="${key##*|}"
+          items+=("$(jo app="$app" channel="$channel")")
+        done
+
+        matrix="$(jo -a "${items[@]}")"
+        echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+        images="$(printf '%s\n' "${items[@]}" \
+          | jq -R -s -c 'split("\n") | map(select(length > 0)) | map(fromjson | "\(.app):\(.channel)")')"
+        echo "images=$images" >> "$GITHUB_OUTPUT"
+
+        app_list="$(printf '%s\n' "${!apps_touched[@]}" \
+          | jq -R -s -c 'split("\n") | map(select(length > 0))')"
+        echo "addedOrModifiedImages=$app_list" >> "$GITHUB_OUTPUT"
