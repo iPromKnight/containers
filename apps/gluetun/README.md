@@ -151,14 +151,14 @@ during the container teardown.
 From the parent `containers/` repo:
 
 ```sh
-task APP=gluetun CHANNEL=master BASE=false test-x64
+task APP=gluetun CHANNEL=main BASE=false test-x64
 ```
 
 The `test-x64` task builds the image, runs goss smoke tests (process check +
-control-server status), and emits the local tag `gluetun:master`. Publish with:
+control-server status), and emits the local tag `gluetun:main`. Publish with:
 
 ```sh
-task APP=gluetun CHANNEL=master BASE=false REGISTRY=ghcr.io/ipromknight test-push
+task APP=gluetun CHANNEL=main BASE=false REGISTRY=ghcr.io/ipromknight test-push
 ```
 
 ## Diagnostic / forensic tools

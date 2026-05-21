@@ -24,6 +24,7 @@ RUN pnpm run build-css
 FROM ghcr.io/ipromknight/ubuntu:rolling AS python-build
 
 ARG DEBIAN_FRONTEND=noninteractive
+ARG TARGETARCH
 
 # Base image runs as `notroot` (UID 568); switch to root for apt + writes to /opt.
 USER root
@@ -36,10 +37,15 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Pin uv version for reproducibility. Standalone binary, no python required to install.
-ADD https://github.com/astral-sh/uv/releases/download/0.5.13/uv-x86_64-unknown-linux-gnu.tar.gz /tmp/uv.tar.gz
-RUN tar -xzf /tmp/uv.tar.gz -C /tmp && \
-    mv /tmp/uv-x86_64-unknown-linux-gnu/uv /usr/local/bin/uv && \
-    rm -rf /tmp/uv.tar.gz /tmp/uv-x86_64-unknown-linux-gnu
+RUN case "${TARGETARCH}" in \
+        amd64) UV_TRIPLE=x86_64-unknown-linux-gnu ;; \
+        arm64) UV_TRIPLE=aarch64-unknown-linux-gnu ;; \
+        *) echo "Unsupported arch: ${TARGETARCH}" && exit 1 ;; \
+    esac && \
+    curl -fsSL "https://github.com/astral-sh/uv/releases/download/0.5.13/uv-${UV_TRIPLE}.tar.gz" -o /tmp/uv.tar.gz && \
+    tar -xzf /tmp/uv.tar.gz -C /tmp && \
+    mv "/tmp/uv-${UV_TRIPLE}/uv" /usr/local/bin/uv && \
+    rm -rf /tmp/uv.tar.gz "/tmp/uv-${UV_TRIPLE}"
 
 WORKDIR /app
 
@@ -48,8 +54,7 @@ COPY --from=cloner /source/pyproject.toml /source/VERSION /source/requirements.t
 ENV UV_PYTHON_INSTALL_DIR=/opt/python
 
 # uv downloads a standalone Python 3.12 into /opt/python, creates a venv at
-# /opt/venv pointing at it, then installs houndarr's runtime deps. pip will
-# pick manylinux2014 wheels because we're on Focal — those work fine at runtime.
+# /opt/venv pointing at it, then installs houndarr's runtime deps.
 RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
     uv venv --python 3.12 /opt/venv && \
     uv pip install --python /opt/venv/bin/python --no-cache-dir -r requirements.txt

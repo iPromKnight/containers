@@ -10,19 +10,20 @@ on:
         type: choice
         default: "altmount/dev"
         options:
-          - alpine/3.19
+          - alpine/3.23
           - altmount/main
           - altmount/dev
-          - audiobookshelf/master
+          - audiobookshelf/main
           - decypharr/main
-          - gluetun/master
+          - gluetun/main
           - gort/main
           - houndarr/main
           - imagemaid/main
           - jellyfin/stable
-          - kometa/master
+          - kometa/main
           - mcjava2bedrock/main
           - nzbdav/main
+          - nzbhydra2/main
           - orionzb/main
           - orionznab/main
           - pia/master
@@ -30,13 +31,13 @@ on:
           - profilarr/main
           - proton-gluetun-updater/main
           - prowlarr/nightly
-          - radarr/master
+          - radarr/main
           - rclone-manager/main
           - sonarr/main
-          - tautulli/master
+          - tautulli/main
           - trailerfin_rust/main
           - tuliprox/main
-          - ubuntu/focal
+          - ubuntu/noble
       dryRun:
         description: "Only print, don't build or push"
         required: false

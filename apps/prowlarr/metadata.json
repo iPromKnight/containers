@@ -2,10 +2,11 @@
   "app": "prowlarr",
   "base": false,
   "channels": [
-   {
+    {
       "name": "nightly",
       "platforms": [
-        "linux/amd64"
+        "linux/amd64",
+        "linux/arm64"
       ],
       "stable": false,
       "tests": {

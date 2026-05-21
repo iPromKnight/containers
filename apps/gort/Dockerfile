@@ -4,9 +4,13 @@ COPY --chmod=0755 ./apps/gort/tools.sh /tmp/fetch_tools.sh
 
 RUN apt-get update && apt-get install -y \
   curl \
-  wget
+  wget \
+  xz-utils
 
-RUN /tmp/fetch_tools.sh
+# Mount the public packages token as a buildkit secret so tools.sh can
+# authenticate to the GitHub API. Anonymous calls hit the 60/hr rate limit
+# within a handful of release lookups; with a token, the limit is 5000/hr.
+RUN --mount=type=secret,id=PUBLIC_PACKAGES_TOKEN,env=TOKEN /tmp/fetch_tools.sh
 
 FROM alpine:3.21.3
 

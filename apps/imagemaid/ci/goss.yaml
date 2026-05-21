@@ -1,5 +1,12 @@
 ---
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#process
+# imagemaid runs python3 only on schedule or when triggered via the ttyd UI,
+# so we assert the always-on entrypoint state: the ttyd web TTY.
 process:
-  python3:
+  ttyd:
     running: true
+
+# https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#port
+port:
+  tcp:3001:
+    listening: true

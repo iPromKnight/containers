@@ -64,10 +64,44 @@ tasks:
       SKIP_STARTUP: '{{.SKIP_STARTUP | default "false"}}'
     env:
       CONTAINER_RUNTIME: docker
-      GOSS_PATH: ./.goss/goss
+      GOSS_PATH: ./.goss/goss-amd64
       GOSS_OPTS: --retry-timeout 15s --sleep 2s --color --format documentation
       GOSS_FILE: ./apps/{{.APP}}/ci/goss.yaml
-      
+
+  test-arm64:
+    desc: |-
+      task APP=<app> CHANNEL=<channel> BASE=<true/false> [SKIP_STARTUP=true] test-arm64
+    cmds:
+      - task: download-goss
+      - >-
+        echo "VERSION: {{.VERSION}}"
+      - >-
+        cue vet --schema '#Spec' ./apps/{{.APP}}/metadata.json metadata.rules.cue
+      - >-
+        docker buildx build --platform linux/arm64 --progress=plain --load
+        -t {{.APP}}:{{.CHANNEL}}-arm64
+        --build-arg CHANNEL={{.CHANNEL}}
+        --build-arg VERSION={{.VERSION}}
+        {{if ne .PUBLIC_TOKEN ""}}--secret id=PUBLIC_PACKAGES_TOKEN,env=PUBLIC_PACKAGES_TOKEN{{end}}
+        -f ./apps/{{.APP}}/Dockerfile .
+      - >-
+        ./.goss/dgoss run
+        --platform linux/arm64
+        {{if eq .SKIP_STARTUP "true"}}-e SKIP_STARTUP=1{{end}}
+        {{.APP}}:{{.CHANNEL}}-arm64
+        {{if eq .BASE "true"}}tail -f /dev/null{{end}}
+    vars:
+      VERSION:
+        sh: bash ./.github/scripts/upstream.sh "{{.APP}}" "{{.CHANNEL}}"
+      PUBLIC_TOKEN: '{{.PUBLIC_TOKEN | default ""}}'
+      SKIP_STARTUP: '{{.SKIP_STARTUP | default "false"}}'
+    env:
+      CONTAINER_RUNTIME: docker
+      GOSS_PATH: ./.goss/goss-arm64
+      GOSS_OPTS: --retry-timeout 15s --sleep 2s --color --format documentation
+      GOSS_FILE: ./apps/{{.APP}}/ci/goss.yaml
+
+
   test-push:
     silent: true
     desc: |-
@@ -142,10 +176,14 @@ tasks:
       GOSS_VERSION: v0.3.18
     cmds:
       - mkdir -p ./.goss
-      - curl -fsSL -o ./.goss/goss https://github.com/aelsabbahy/goss/releases/download/{{.GOSS_VERSION}}/goss-linux-amd64
-      - chmod +x ./.goss/goss
+      - curl -fsSL -o ./.goss/goss-amd64 https://github.com/aelsabbahy/goss/releases/download/{{.GOSS_VERSION}}/goss-linux-amd64
+      - chmod +x ./.goss/goss-amd64
+      - curl -fsSL -o ./.goss/goss-arm64 https://github.com/aelsabbahy/goss/releases/download/{{.GOSS_VERSION}}/goss-linux-arm64
+      - chmod +x ./.goss/goss-arm64
+      - ln -sf goss-amd64 ./.goss/goss
       - curl -fsSL -o ./.goss/dgoss https://raw.githubusercontent.com/aelsabbahy/goss/{{.GOSS_VERSION}}/extras/dgoss/dgoss
       - chmod +x ./.goss/dgoss
     status:
-      - test -f ./.goss/goss
+      - test -f ./.goss/goss-amd64
+      - test -f ./.goss/goss-arm64
       - test -f ./.goss/dgoss

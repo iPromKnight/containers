@@ -23,15 +23,19 @@ RUN \
     apt-get -qq update \
     && \
     apt-get -qq install -y \
-        gnupg2 \
+        ca-certificates gnupg \
+    && \
+    install -d -m 0755 /etc/apt/keyrings \
     && \
     case "${TARGETPLATFORM}" in \
         'linux/amd64') \
-            curl -sL https://repositories.intel.com/graphics/intel-graphics.key | apt-key add - \
-            && echo 'deb [arch=amd64] https://repositories.intel.com/graphics/ubuntu focal main' > /etc/apt/sources.list.d/intel.list \
+            curl -fsSL https://repositories.intel.com/gpu/intel-graphics.key \
+                | gpg --dearmor -o /etc/apt/keyrings/intel-graphics.gpg \
+            && echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu noble unified' \
+                > /etc/apt/sources.list.d/intel.list \
             && \
             export ARCH='amd64'; \
-            export EXTRA_INSTALL_ARG='intel-opencl-icd=21.49.21786+i643~u20.04'; \
+            export EXTRA_INSTALL_ARG='intel-opencl-icd'; \
         ;; \
         'linux/arm64') \
             export ARCH='arm64'; \
@@ -56,7 +60,7 @@ RUN \
     && \
     dpkg -i --force-confold /tmp/plex.deb \
     && \
-    apt-get remove -y aria2 gnupg2 \
+    apt-get remove -y aria2 gnupg \
     && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
     && apt-get autoremove -y \
     && apt-get clean \

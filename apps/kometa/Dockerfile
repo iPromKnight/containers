@@ -35,11 +35,29 @@ RUN echo "**** install system packages ****" \
 
 COPY --from=cloner /source/. /
 
+# Build-time smoke test: fail the build if any pinned dependency is missing
+# wheels for the target arch or otherwise fails to import. Mirrors the
+# top-level import block in /kometa.py — keep in sync if upstream changes.
+RUN python3 -c "import arrapi, lxml, pathvalidate, PIL, plexapi, psutil, dateutil, requests, ruamel.yaml, schedule, setuptools, tmdbapis; \
+from packaging.version import Version, parse; \
+from dotenv import load_dotenv, version as dotenv_version; \
+from PIL import ImageFile; \
+from plexapi import server; \
+from plexapi.exceptions import NotFound; \
+from plexapi.video import Show, Season"
+
 RUN mkdir -p /extra-scripts \
     && chown -R 568:568 /extra-scripts \
     && chmod -R 775 /extra-scripts
 
-ADD --chmod=0755 https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 /usr/local/bin/ttyd
+ARG TARGETARCH
+RUN case "${TARGETARCH}" in \
+        amd64) TTYD_SUFFIX=x86_64 ;; \
+        arm64) TTYD_SUFFIX=aarch64 ;; \
+        *) echo "Unsupported arch: ${TARGETARCH}" && exit 1 ;; \
+    esac && \
+    curl -fsSL "https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.${TTYD_SUFFIX}" -o /usr/local/bin/ttyd && \
+    chmod 0755 /usr/local/bin/ttyd
 COPY --chmod=0755 --chown=568:568 apps/ubuntu/base-entrypoint.sh /entrypoint.sh
 COPY --chmod=0755 --chown=568:568 apps/ubuntu/scripts /prom_scripts
 COPY --chmod=0755 --chown=568:568 apps/kometa/root /

@@ -1,5 +1,5 @@
 ARG VERSION
-FROM public.ecr.aws/docker/library/golang:1.20.4-alpine3.16 AS builder
+FROM public.ecr.aws/docker/library/golang:1.26-alpine3.23 AS builder
 ARG TARGETOS
 ARG TARGETARCH
 ARG TARGETVARIANT=""
@@ -42,12 +42,8 @@ ENV \
 USER root
 
 RUN \
-    adduser notroot \
-        --uid 568 \
-        --group \
-        --system \
-        --disabled-password \
-        --no-create-home \
+    groupadd --system --gid 568 notroot \
+    && useradd --system --uid 568 --gid 568 --no-create-home --shell /usr/sbin/nologin notroot \
     && \
     mkdir -p /config \
     && chown -R notroot:notroot /config \

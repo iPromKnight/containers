@@ -1,0 +1,22 @@
+---
+# Wrapper around qmcgaw/gluetun — we add a watchdog + helper scripts on top.
+# Goss only asserts our additions exist; upstream behaviour is its own test.
+file:
+  /promknight-entrypoint.sh:
+    exists: true
+  /pick-servers.sh:
+    exists: true
+  /watchdog.sh:
+    exists: true
+  /probe-status.sh:
+    exists: true
+  /probe-egress.sh:
+    exists: true
+  /quality-check.sh:
+    exists: true
+  /usr/bin/jq:
+    exists: true
+  /usr/bin/curl:
+    exists: true
+  /usr/bin/wg:
+    exists: true

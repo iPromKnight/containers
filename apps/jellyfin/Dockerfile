@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS deovr-plugin-builder
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS deovr-plugin-builder
 
 RUN apt-get update && \
     apt-get install -y \
@@ -37,46 +37,51 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Replace malloc with jemalloc
 RUN apt-get -qq update \
-    && apt-get -qq install -y libjemalloc2 libjemalloc-dev 
+    && apt-get -qq install -y libjemalloc2 libjemalloc-dev
 
-RUN curl -sL https://repositories.intel.com/graphics/intel-graphics.key | apt-key add - \
-        && echo 'deb [arch=amd64] https://repositories.intel.com/graphics/ubuntu focal main' > /etc/apt/sources.list.d/intel.list \
-        && \
-        export ARCH='amd64'; \
-        export EXTRA_INSTALL_ARG='intel-media-va-driver-non-free nvidia-opencl-icd-340 i965-va-driver mesa-va-drivers'
+ARG TARGETARCH
 
 RUN \
     apt-get -qq update \
-    && \
-    apt-get -qq install -y \
-        gnupg2 \
-    && \
-    apt-get -qq update \
-    && \
-    apt-get -qq install -y \
-        ca-certificates \
-        ${EXTRA_INSTALL_ARG} \
-    && \
-    curl -fsSL "https://repo.jellyfin.org/ubuntu/jellyfin_team.gpg.key" | apt-key add - && \
-    echo "deb [arch=amd64] https://repo.jellyfin.org/ubuntu focal main" | tee /etc/apt/sources.list.d/jellyfin.list && \
-    apt-get -qq update && \
-    apt-get -qq install -y \
+    && apt-get -qq install -y ca-certificates gnupg \
+    && install -d -m 0755 /etc/apt/keyrings \
+    && curl -fsSL https://repo.jellyfin.org/ubuntu/jellyfin_team.gpg.key \
+        | gpg --dearmor -o /etc/apt/keyrings/jellyfin.gpg \
+    && echo "deb [arch=${TARGETARCH} signed-by=/etc/apt/keyrings/jellyfin.gpg] https://repo.jellyfin.org/ubuntu noble main" \
+        > /etc/apt/sources.list.d/jellyfin.list \
+    && case "${TARGETARCH}" in \
+        amd64) \
+            curl -fsSL https://repositories.intel.com/gpu/intel-graphics.key \
+                | gpg --dearmor -o /etc/apt/keyrings/intel-graphics.gpg \
+            && echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu noble unified' \
+                > /etc/apt/sources.list.d/intel.list \
+            && EXTRA_GPU_PKGS='intel-media-va-driver-non-free i965-va-driver mesa-va-drivers' \
+            && JEMALLOC_TRIPLE='x86_64-linux-gnu' \
+            ;; \
+        arm64) \
+            EXTRA_GPU_PKGS='mesa-va-drivers' \
+            && JEMALLOC_TRIPLE='aarch64-linux-gnu' \
+            ;; \
+        *) echo "Unsupported arch: ${TARGETARCH}" && exit 1 ;; \
+    esac \
+    && apt-get -qq update \
+    && apt-get -qq install -y \
+        ${EXTRA_GPU_PKGS} \
         jellyfin-server="${VERSION}*" \
         jellyfin-web \
-        jellyfin-ffmpeg5 \
-    && \
-    apt-get remove -y gnupg2 \
+        jellyfin-ffmpeg7 \
+    && ln -sf "/usr/lib/${JEMALLOC_TRIPLE}/libjemalloc.so.2" /usr/local/lib/libjemalloc.so.2 \
+    && apt-get remove -y gnupg \
     && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
     && apt-get autoremove -y \
     && apt-get clean \
-    && \
-    rm -rf \
+    && rm -rf \
         /tmp/* \
         /var/lib/apt/lists/* \
         /var/tmp/ \
-    && printf "umask %d" "${UMASK}" >> /etc/bash.bashrc 
+    && printf "umask %d" "${UMASK}" >> /etc/bash.bashrc
 
-ENV LD_PRELOAD="/usr/lib/x86_64-linux-gnu/libjemalloc.so.2"
+ENV LD_PRELOAD="/usr/local/lib/libjemalloc.so.2"
 
 USER 568
 

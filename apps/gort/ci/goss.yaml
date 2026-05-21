@@ -1,0 +1,22 @@
+---
+# gort is a network/debug toolbox image. Assert a representative set of the
+# tools it ships, so a future refactor that drops apk packages fails the build.
+file:
+  /root/motd:
+    exists: true
+  /root/.zshrc:
+    exists: true
+
+command:
+  curl --version:
+    exit-status: 0
+  jq --version:
+    exit-status: 0
+  nmap --version:
+    exit-status: 0
+  iperf3 --version:
+    exit-status: 0
+  test -x /usr/bin/drill:
+    exit-status: 0
+  ip -V:
+    exit-status: 0

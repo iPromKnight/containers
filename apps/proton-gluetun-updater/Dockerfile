@@ -43,20 +43,27 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 #  which is exactly what we want.)
 FROM ghcr.io/ipromknight/alpine:rolling AS python-build
 
+ARG TARGETARCH
+
 USER root
 
-# uv brings its own Python interpreter, but it still needs `git` to resolve
-# git+https:// references (proton-core is published only via git tags, no
-# wheels on PyPI). build-base + libffi/openssl headers are for the few wheels
-# that compile from source on musl (cryptography, bcrypt).
+# uv brings its own Python interpreter (with its own headers), so we only need
+# `git` to resolve git+https:// references (proton-core is published only via
+# git tags, no wheels on PyPI). build-base + libffi/openssl headers are for the
+# few wheels that compile from source on musl (cryptography, bcrypt).
 RUN apk add --no-cache \
-    ca-certificates curl git build-base libffi-dev openssl-dev python3-dev
+    ca-certificates curl git build-base libffi-dev openssl-dev
 
 # Pin uv version for reproducibility. Standalone binary, no Python needed to install it.
-RUN curl -fsSL "https://github.com/astral-sh/uv/releases/download/0.11.14/uv-x86_64-unknown-linux-musl.tar.gz" -o /tmp/uv.tar.gz && \
+RUN case "${TARGETARCH}" in \
+        amd64) UV_TRIPLE=x86_64-unknown-linux-musl ;; \
+        arm64) UV_TRIPLE=aarch64-unknown-linux-musl ;; \
+        *) echo "Unsupported arch: ${TARGETARCH}" && exit 1 ;; \
+    esac && \
+    curl -fsSL "https://github.com/astral-sh/uv/releases/download/0.11.14/uv-${UV_TRIPLE}.tar.gz" -o /tmp/uv.tar.gz && \
     tar -xzf /tmp/uv.tar.gz -C /tmp && \
-    mv /tmp/uv-x86_64-unknown-linux-musl/uv /usr/local/bin/uv && \
-    rm -rf /tmp/uv.tar.gz /tmp/uv-x86_64-unknown-linux-musl
+    mv "/tmp/uv-${UV_TRIPLE}/uv" /usr/local/bin/uv && \
+    rm -rf /tmp/uv.tar.gz "/tmp/uv-${UV_TRIPLE}"
 
 ENV UV_PYTHON_INSTALL_DIR=/opt/python
 
