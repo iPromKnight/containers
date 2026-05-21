@@ -94,17 +94,16 @@ runs:
         context: .
         platforms: ${{ inputs.platform }}
         file: ${{ inputs.dockerfile }}
-        # `tags:` only names the locally-loaded image — the push-by-digest
-        # output deliberately ignores tags so the registry only holds the
-        # digest-keyed manifest until the merge job assembles + tags it.
-        tags: |
-          ghcr.io/ipromknight/${{ inputs.tag_testing }}
-        # Two exporters in one build:
-        #   - type=docker → loaded into local daemon for goss
-        #   - type=image  → pushed to ghcr by digest (only when push=true)
+        # Two exporters in a single buildx invocation, each with its own name.
+        # We deliberately do NOT set the top-level `tags:` input — that input
+        # propagates the tag to ALL exporters, and `push-by-digest=true`
+        # forbids tagged refs ("can't push tagged ref ... by digest"). Naming
+        # each exporter inline keeps them independent:
+        #   - type=docker → loaded into local daemon under tag_testing for goss
+        #   - type=image  → pushed to ghcr by digest only (no tag)
         # Requires buildkit/buildx 0.13+, which GHA runners have.
         outputs: |
-          type=docker
+          type=docker,name=ghcr.io/ipromknight/${{ inputs.tag_testing }}
           ${{ inputs.push == 'true' && format('type=image,name={0},push-by-digest=true,name-canonical=true,push=true', inputs.image) || '' }}
         cache-from: type=gha,scope=${{ inputs.app }}-${{ inputs.channel }}-${{ inputs.platform }}
         cache-to: type=gha,mode=max,scope=${{ inputs.app }}-${{ inputs.channel }}-${{ inputs.platform }}
