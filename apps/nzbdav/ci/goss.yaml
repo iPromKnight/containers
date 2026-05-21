@@ -1,9 +1,12 @@
 ---
 # https://github.com/aelsabbahy/goss/blob/master/docs/manual.md#process
+# The .NET backend's `comm` is stable as `NzbWebDAV`. The Node SSR frontend
+# is launched via `npm run start` which spawns node as a grandchild, so its
+# /proc/*/comm depends on the npm/node version (sometimes `node`, sometimes
+# `npm start`). The HTTP 3000 assertion already proves node is serving — no
+# need for a fragile process-name check on top.
 process:
   NzbWebDAV:
-    running: true
-  node:
     running: true
 
 http:
