@@ -1,5 +1,8 @@
-name: Build and Push Release Image
-description: Builds and pushes the multi-arch image to a registry
+name: Build and Push Release Image (single arch)
+description: |
+  Builds a single-architecture image and pushes it by digest to ghcr.io.
+  Multi-arch manifests are assembled in a follow-on `merge-release-manifests`
+  step from the per-arch digests this action emits.
 
 inputs:
   app:
@@ -16,29 +19,31 @@ inputs:
     description: "Dockerfile path"
   label_type:
     required: true
-    description: "Label type to use"
+    description: "Label type to use (org.opencontainers.image or .base)"
   build_date:
     required: true
     description: "Build date"
-  tag_rolling:
+  platform:
     required: true
-    description: "Tag for rolling"
-  tag_version:
+    description: "Single platform to build (e.g. linux/amd64 or linux/arm64)"
+  image:
     required: true
-    description: "Tag version"
-  platforms:
-    required: true
-    description: "Platforms to build for"
+    description: "Image repo (e.g. ghcr.io/ipromknight/altmount). Used for digest push."
   push:
     required: false
     default: "true"
     description: "Push the image to the registry"
   token:
     required: true
-    description: "GitHub token for authentication"
+    description: "GitHub token for ghcr login"
   public_token:
     required: true
     description: "GitHub token for authentication (public packages)"
+
+outputs:
+  digest:
+    description: "Digest of the pushed manifest for this arch"
+    value: ${{ steps.build.outputs.digest }}
 
 runs:
   using: composite
@@ -53,7 +58,8 @@ runs:
         username: ${{ github.actor }}
         password: ${{ inputs.token }}
 
-    - name: Build and push image
+    - name: Build and push by digest
+      id: build
       uses: docker/build-push-action@v6
       with:
         secrets: |
@@ -71,11 +77,40 @@ runs:
           ${{ inputs.label_type }}.documentation=https://github.com/ipromknight/containers/apps/${{ inputs.app }}/README.md
           ${{ inputs.label_type }}.revision=${{ github.sha }}
         context: .
-        platforms: ${{ inputs.platforms }}
+        platforms: ${{ inputs.platform }}
         file: ${{ inputs.dockerfile }}
-        push: ${{ inputs.push }}
-        tags: |
-          ghcr.io/ipromknight/${{ inputs.tag_rolling }}
-          ghcr.io/ipromknight/${{ inputs.tag_version }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+        # push-by-digest: docker/build-push-action pushes the manifest to the
+        # registry but does NOT create a tag — only the digest is returned.
+        # We then point one or more tags at the multi-arch manifest later.
+        outputs: |
+          type=image,name=${{ inputs.image }},push-by-digest=true,name-canonical=true,push=${{ inputs.push }}
+        cache-from: type=gha,scope=${{ inputs.app }}-${{ inputs.channel }}-${{ inputs.platform }}
+        cache-to: type=gha,mode=max,scope=${{ inputs.app }}-${{ inputs.channel }}-${{ inputs.platform }}
+
+    # Write the digest to a file the merge job can pick up via download-artifact.
+    # Artifact names must be unique across the run, so include arch in the name.
+    # The file content is just the digest string (sha256:...).
+    - name: Export digest as artifact
+      if: ${{ inputs.push == 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p /tmp/digests
+        digest='${{ steps.build.outputs.digest }}'
+        arch="${PLATFORM##*/}"
+        echo "$digest" > "/tmp/digests/${arch}"
+      env:
+        PLATFORM: ${{ inputs.platform }}
+
+    - name: Upload digest artifact
+      if: ${{ inputs.push == 'true' }}
+      uses: actions/upload-artifact@v4
+      with:
+        # name-mangling: per-(app, channel, arch). Merge job globs on
+        # `digests-${app}-${channel}-*` to find all arches for this image.
+        name: digests-${{ inputs.app }}-${{ inputs.channel }}-${{ env.ARCH }}
+        path: /tmp/digests/*
+        if-no-files-found: error
+        retention-days: 1
+      env:
+        ARCH: ${{ inputs.platform == 'linux/amd64' && 'amd64' || (inputs.platform == 'linux/arm64' && 'arm64' || 'unknown') }}

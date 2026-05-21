@@ -1,0 +1,74 @@
+name: Merge Release Manifests
+description: |
+  Combines per-arch digests pushed by build-release-image into a multi-arch
+  manifest and tags it. Run once per (app, channel) after all per-arch
+  builds in the matrix succeed. Pulls digests via download-artifact using
+  the `digests-${app}-${channel}-*` naming pattern from build-release-image.
+
+inputs:
+  app:
+    required: true
+    description: "App that's being merged"
+  channel:
+    required: true
+    description: "Channel that's being merged"
+  image:
+    required: true
+    description: "Image repo (e.g. ghcr.io/ipromknight/altmount)"
+  tag_rolling:
+    required: true
+    description: "Rolling tag suffix (e.g. altmount:rolling). Repo-prefixed automatically."
+  tag_version:
+    required: true
+    description: "Version-pinned tag suffix (e.g. altmount:v1.2.3)."
+  token:
+    required: true
+    description: "GitHub token for ghcr login"
+
+runs:
+  using: composite
+  steps:
+    - name: Download per-arch digests
+      uses: actions/download-artifact@v4
+      with:
+        path: /tmp/digests
+        pattern: digests-${{ inputs.app }}-${{ inputs.channel }}-*
+        merge-multiple: true
+
+    - name: Setup Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to GHCR
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ inputs.token }}
+
+    - name: Create multi-arch manifest and push tags
+      shell: bash
+      run: |
+        set -euo pipefail
+        # Each file in /tmp/digests contains a single digest line (sha256:...).
+        # Convert into the `image@sha256:...` source refs imagetools expects.
+        SRCS=()
+        for f in /tmp/digests/*; do
+          digest=$(cat "$f")
+          SRCS+=("${{ inputs.image }}@${digest}")
+        done
+        if [ "${#SRCS[@]}" -eq 0 ]; then
+          echo "::error::No digest artifacts found for ${{ inputs.app }}/${{ inputs.channel }}"
+          exit 1
+        fi
+        echo "Source manifests:"
+        printf '  %s\n' "${SRCS[@]}"
+        echo "Tags:"
+        echo "  ghcr.io/ipromknight/${{ inputs.tag_rolling }}"
+        echo "  ghcr.io/ipromknight/${{ inputs.tag_version }}"
+        docker buildx imagetools create \
+          --tag "ghcr.io/ipromknight/${{ inputs.tag_rolling }}" \
+          --tag "ghcr.io/ipromknight/${{ inputs.tag_version }}" \
+          "${SRCS[@]}"
+        echo
+        echo "Resulting manifest:"
+        docker buildx imagetools inspect "ghcr.io/ipromknight/${{ inputs.tag_rolling }}"

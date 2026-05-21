@@ -13,8 +13,14 @@ inputs:
 
 outputs:
   chan_platforms:
-    description: "Platforms to build for"
+    description: "Platforms to build for (comma-separated, e.g. linux/amd64,linux/arm64)"
     value: ${{ steps.extract.outputs.chan_platforms }}
+  chan_platforms_json:
+    description: "Platforms as a JSON array, suitable for fromJson() in workflows"
+    value: ${{ steps.extract.outputs.chan_platforms_json }}
+  chan_image:
+    description: "Image repo (ghcr.io/ipromknight/<app-or-app-channel>) without tag"
+    value: ${{ steps.extract.outputs.chan_image }}
   chan_tests_enabled:
     description: "Whether tests are enabled"
     value: ${{ steps.extract.outputs.chan_tests_enabled }}
@@ -61,11 +67,13 @@ runs:
         chan_config=$(jq --arg chan "${{ inputs.channel }}" '(.channels | .[] | select(.name == $chan))' ./apps/${{ inputs.app }}/metadata.json)
         chan_stable=$(jq -r '.stable' <<< "$chan_config")
         chan_platforms=$(jq -r '.platforms | join(",")' <<< "$chan_config")
+        chan_platforms_json=$(jq -c '.platforms' <<< "$chan_config")
         chan_tests_enabled=$(jq -r '.tests.enabled' <<< "$chan_config")
         chan_tests_type=$(jq -r '.tests.type' <<< "$chan_config")
         chan_upstream_version=$(bash ./.github/scripts/upstream.sh "${{ inputs.app }}" "${{ inputs.channel }}")
 
         echo "chan_platforms=$chan_platforms" >> "$GITHUB_OUTPUT"
+        echo "chan_platforms_json=$chan_platforms_json" >> "$GITHUB_OUTPUT"
         echo "chan_tests_enabled=$chan_tests_enabled" >> "$GITHUB_OUTPUT"
         echo "chan_tests_type=$chan_tests_type" >> "$GITHUB_OUTPUT"
         echo "chan_upstream_version=$chan_upstream_version" >> "$GITHUB_OUTPUT"
@@ -87,11 +95,11 @@ runs:
         fi
 
         if [[ "$chan_stable" == true ]]; then
-          echo "chan_tag_testing=${{ inputs.app }}:testingz" >> "$GITHUB_OUTPUT"
-          echo "chan_tag_rolling=${{ inputs.app }}:rolling" >> "$GITHUB_OUTPUT"
-          echo "chan_tag_version=${{ inputs.app }}:$chan_upstream_version" >> "$GITHUB_OUTPUT"
+          repo="${{ inputs.app }}"
         else
-          echo "chan_tag_testing=${{ inputs.app }}-${{ inputs.channel }}:testingz" >> "$GITHUB_OUTPUT"
-          echo "chan_tag_rolling=${{ inputs.app }}-${{ inputs.channel }}:rolling" >> "$GITHUB_OUTPUT"
-          echo "chan_tag_version=${{ inputs.app }}-${{ inputs.channel }}:$chan_upstream_version" >> "$GITHUB_OUTPUT"
+          repo="${{ inputs.app }}-${{ inputs.channel }}"
         fi
+        echo "chan_tag_testing=${repo}:testingz" >> "$GITHUB_OUTPUT"
+        echo "chan_tag_rolling=${repo}:rolling" >> "$GITHUB_OUTPUT"
+        echo "chan_tag_version=${repo}:${chan_upstream_version}" >> "$GITHUB_OUTPUT"
+        echo "chan_image=ghcr.io/ipromknight/${repo}" >> "$GITHUB_OUTPUT"

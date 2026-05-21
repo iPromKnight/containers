@@ -12,8 +12,11 @@ outputs:
     description: "Unique list of apps that had any change (kept for backwards-compat)"
     value: ${{ steps.scope.outputs.addedOrModifiedImages }}
   matrix:
-    description: "JSON array of {app, channel} pairs to build"
+    description: "JSON array of {app, channel} pairs (merge job + test job)"
     value: ${{ steps.scope.outputs.matrix }}
+  build_matrix:
+    description: "JSON array of {app, channel, platform, runner} entries (per-arch release builds)"
+    value: ${{ steps.scope.outputs.build_matrix }}
   images:
     description: "Pretty list of app:channel pairs (for notifications)"
     value: ${{ steps.scope.outputs.images }}
@@ -87,20 +90,41 @@ runs:
 
         if [[ ${#pairs[@]} -eq 0 ]]; then
           echo "matrix=[]"                 >> "$GITHUB_OUTPUT"
+          echo "build_matrix=[]"           >> "$GITHUB_OUTPUT"
           echo "images=[]"                 >> "$GITHUB_OUTPUT"
           echo "addedOrModifiedImages=[]"  >> "$GITHUB_OUTPUT"
           exit 0
         fi
 
+        runner_for_platform() {
+          case "$1" in
+            linux/amd64) echo "ubuntu-24.04" ;;
+            linux/arm64) echo "ubuntu-24.04-arm" ;;
+            *)           echo "ubuntu-latest" ;;
+          esac
+        }
+
         declare -a items=()
+        declare -a build_items=()
         for key in "${!pairs[@]}"; do
           app="${key%%|*}"
           channel="${key##*|}"
           items+=("$(jo app="$app" channel="$channel")")
+
+          # Expand to per-platform entries for the release-build matrix using
+          # the platforms declared in this channel's metadata.json.
+          chan_config="$(jq --arg c "$channel" '(.channels | .[] | select(.name == $c))' "./apps/${app}/metadata.json")"
+          while read -r platform; do
+            runner="$(runner_for_platform "$platform")"
+            build_items+=("$(jo app="$app" channel="$channel" platform="$platform" runner="$runner")")
+          done < <(jq -r '.platforms | .[]' <<< "$chan_config")
         done
 
         matrix="$(jo -a "${items[@]}")"
         echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+        build_matrix="$(jo -a "${build_items[@]}")"
+        echo "build_matrix=$build_matrix" >> "$GITHUB_OUTPUT"
 
         images="$(printf '%s\n' "${items[@]}" \
           | jq -R -s -c 'split("\n") | map(select(length > 0)) | map(fromjson | "\(.app):\(.channel)")')"

@@ -19,8 +19,9 @@ jobs:
     name: Generate matrix for building images
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.updates.outputs.changes }}
-      images: ${{ steps.updates.outputs.images }}
+      matrix:       ${{ steps.updates.outputs.changes }}
+      build_matrix: ${{ steps.updates.outputs.build_matrix }}
+      images:       ${{ steps.updates.outputs.images }}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -28,16 +29,18 @@ jobs:
 
       - name: Install tools
         run: |
-          sudo apt-get update 
+          sudo apt-get update
           sudo apt-get -y install moreutils jo
 
       - name: Fetch all apps
         id: updates
         run: ./.github/scripts/rebuild-all.sh
-        
-  images-build:
-    name: Build and push images
-    runs-on: ubuntu-latest
+
+  # Test build + goss runs once per (app, channel) on a native amd64 runner.
+  # Goss assertions don't change per arch, so testing one is sufficient.
+  images-test:
+    name: "Test: ${{ matrix.image.app }} / ${{ matrix.image.channel }}"
+    runs-on: ubuntu-24.04
     needs: [generate-build-matrix]
     if: |
       always()
@@ -91,25 +94,90 @@ jobs:
           goss_config: ${{ steps.vars.outputs.chan_goss_config }}
           goss_args: ${{ steps.vars.outputs.chan_goss_args }}
 
-      - name: Build and push release image
+  # Per-platform release build. One matrix entry per (app, channel, platform);
+  # each runs on the right native runner (ubuntu-24.04 for amd64,
+  # ubuntu-24.04-arm for arm64) so we avoid QEMU emulation entirely.
+  # Pushes by digest only; the merge job assembles the multi-arch manifest.
+  images-release-build:
+    name: "Release: ${{ matrix.entry.app }} / ${{ matrix.entry.channel }} (${{ matrix.entry.platform }})"
+    runs-on: ${{ matrix.entry.runner }}
+    needs: [generate-build-matrix, images-test]
+    if: |
+      always()
+      && needs.images-test.result == 'success'
+      && !cancelled()
+      && needs.generate-build-matrix.outputs.build_matrix != '[]'
+    strategy:
+      matrix:
+        entry: ${{ fromJson(needs.generate-build-matrix.outputs.build_matrix) }}
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Extract build metadata
+        id: vars
+        uses: ./.github/actions/setup-vars
+        with:
+          app: ${{ matrix.entry.app }}
+          channel: ${{ matrix.entry.channel }}
+
+      - name: Build and push release image (by digest)
         if: ${{ env.DRY_RUN != 'true' }}
         uses: ./.github/actions/build-release-image
         with:
-          app: ${{ matrix.image.app }}
-          channel: ${{ matrix.image.channel }}
+          app: ${{ matrix.entry.app }}
+          channel: ${{ matrix.entry.channel }}
           upstream_version: ${{ steps.vars.outputs.chan_upstream_version }}
           dockerfile: ${{ steps.vars.outputs.chan_dockerfile }}
           label_type: ${{ steps.vars.outputs.chan_label_type }}
           build_date: ${{ steps.vars.outputs.chan_build_date }}
-          tag_rolling: ${{ steps.vars.outputs.chan_tag_rolling }}
-          tag_version: ${{ steps.vars.outputs.chan_tag_version }}
-          platforms: ${{ steps.vars.outputs.chan_platforms }}
+          platform: ${{ matrix.entry.platform }}
+          image: ${{ steps.vars.outputs.chan_image }}
           token: ${{ secrets.GH_PAT }}
           public_token: ${{ secrets.PUBLIC_PACKAGES }}
-          
+
+  # Once all per-arch builds for a given (app, channel) succeed, merge the
+  # digests into a single multi-arch manifest tagged with :rolling and the
+  # version-pinned tag. One job per (app, channel).
+  images-release-merge:
+    name: "Merge: ${{ matrix.image.app }} / ${{ matrix.image.channel }}"
+    runs-on: ubuntu-24.04
+    needs: [generate-build-matrix, images-release-build]
+    if: |
+      always()
+      && needs.images-release-build.result == 'success'
+      && !cancelled()
+      && needs.generate-build-matrix.outputs.matrix != '[]'
+      && github.event.inputs.dryRun != 'true'
+    strategy:
+      matrix:
+        image: ${{ fromJson(needs.generate-build-matrix.outputs.matrix) }}
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Extract build metadata
+        id: vars
+        uses: ./.github/actions/setup-vars
+        with:
+          app: ${{ matrix.image.app }}
+          channel: ${{ matrix.image.channel }}
+
+      - name: Merge per-arch digests into multi-arch manifest
+        uses: ./.github/actions/merge-release-manifests
+        with:
+          app: ${{ matrix.image.app }}
+          channel: ${{ matrix.image.channel }}
+          image: ${{ steps.vars.outputs.chan_image }}
+          tag_rolling: ${{ steps.vars.outputs.chan_tag_rolling }}
+          tag_version: ${{ steps.vars.outputs.chan_tag_version }}
+          token: ${{ secrets.GH_PAT }}
+
   notify-success:
     runs-on: ubuntu-latest
-    needs: [generate-build-matrix, images-build]
+    needs: [generate-build-matrix, images-test, images-release-build, images-release-merge]
     if: |
       always()
       && contains(needs.*.result, 'success')
@@ -119,7 +187,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-        
+
       - name: Notify success
         uses: ./.github/actions/notifications
         with:
@@ -129,21 +197,21 @@ jobs:
           gh_verification: '${{ secrets.GH_VERIFICATION }}'
           body: |
             ✅ **Image Rebuilds Complete**
-            
+
             The following images were successfully rebuilt:
-            
+
             - ${{ join(fromJson(needs.generate-build-matrix.outputs.images || '[]'), '\n- ') }}
-            
+
             ---
             🕐 Triggered by automated schedule
             📅 Date: ${{ github.event.head_commit.timestamp }}
             🔗 Commit: [${{ github.event.head_commit.message }}](${{ github.event.head_commit.url }})
             🔗 Workflow: [${{ github.workflow }}](${{ github.run_url }})
             🔗 Repository: [${{ github.repository }}](${{ github.event.repository.html_url }})
-  
+
   notify-failure:
     runs-on: ubuntu-latest
-    needs: [generate-build-matrix, images-build]
+    needs: [generate-build-matrix, images-test, images-release-build, images-release-merge]
     if: |
       always()
       && contains(needs.*.result, 'failure')
@@ -152,7 +220,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      
+
       - name: Notify failure
         uses: ./.github/actions/notifications
         with:
@@ -162,11 +230,11 @@ jobs:
           gh_verification: '${{ secrets.GH_VERIFICATION }}'
           body: |
             ❌ **Image Rebuilds Failed**
-            
+
             The following images failed to rebuild:
-            
+
             - ${{ join(fromJson(needs.generate-build-matrix.outputs.images || '[]'), '\n- ') }}
-            
+
             ---
             🕐 Triggered by automated schedule
             📅 Date: ${{ github.event.head_commit.timestamp }}

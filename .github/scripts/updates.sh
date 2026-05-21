@@ -7,12 +7,26 @@ shopt -s lastpipe
 declare -A app_channel_array
 app_channel_array[_initialized]=""
 
-declare -a changes_array
+# Per-channel platform list, keyed by "$app:$channel" → space-separated platforms.
+# Populated in process_channel as we visit each channel of each metadata.json.
+declare -A channel_platforms
+
+declare -a merge_array  # one entry per (app, channel) — used by merge job
+declare -a build_array  # one entry per (app, channel, platform) — used by build matrix
+
+runner_for_platform() {
+  case "$1" in
+    linux/amd64) echo "ubuntu-24.04" ;;
+    linux/arm64) echo "ubuntu-24.04-arm" ;;
+    *)           echo "ubuntu-latest" ;;
+  esac
+}
 
 process_channel() {
   local app="$1"
   local channel="$2"
   local stable="$3"
+  local platforms_str="$4"  # space-separated, e.g. "linux/amd64 linux/arm64"
 
   echo "::group::Checking ${app}/${channel} (stable=${stable})"
 
@@ -36,6 +50,8 @@ process_channel() {
 
   if [[ "${published_version}" != "${upstream_version}" ]]; then
     echo "🔄 Update required: ${app}$([[ ! ${stable} == false ]] || echo "-${channel}") -> ${upstream_version}"
+    # Stash the platform list keyed by app:channel so emit_output can use it.
+    channel_platforms["${app}:${channel}"]="${platforms_str}"
     echo "${channel}" >&3
   fi
 
@@ -58,12 +74,13 @@ process_metadata_file() {
   local -a updated_channels=()
 
   while read -r channel_info; do
-    local channel stable
+    local channel stable platforms_str
     channel="$(jq --raw-output '.name' <<< "$channel_info")"
     stable="$(jq --raw-output '.stable' <<< "$channel_info")"
+    platforms_str="$(jq --raw-output '.platforms | join(" ")' <<< "$channel_info")"
 
     # Capture only the return value from FD 3
-    if updated_channel="$(process_channel "$app" "$channel" "$stable" 3>&1 1>&2)"; then
+    if updated_channel="$(process_channel "$app" "$channel" "$stable" "$platforms_str" 3>&1 1>&2)"; then
       [[ -n "$updated_channel" ]] && updated_channels+=("$updated_channel")
     fi
   done < <(jq --raw-output -c '.channels | .[]' "$metadata")
@@ -74,33 +91,44 @@ process_metadata_file() {
 }
 
 emit_output() {
-  local output="[]"
+  local merge_output="[]"
+  local build_output="[]"
 
   if (( ${#app_channel_array[@]} > 1 )); then  # 1 = only _initialized
     unset 'app_channel_array[_initialized]'
     for app in "${!app_channel_array[@]}"; do
       for channel in ${app_channel_array[$app]}; do
-        changes_array+=("$(jo app="$app" channel="$channel")")
+        merge_array+=("$(jo app="$app" channel="$channel")")
+        for platform in ${channel_platforms["${app}:${channel}"]}; do
+          runner="$(runner_for_platform "$platform")"
+          build_array+=("$(jo app="$app" channel="$channel" platform="$platform" runner="$runner")")
+        done
       done
     done
-    output="$(jo -a "${changes_array[@]}")"
+    merge_output="$(jo -a "${merge_array[@]}")"
+    build_output="$(jo -a "${build_array[@]}")"
   fi
 
-  if [[ "$output" == "[]" ]]; then
+  if [[ "$merge_output" == "[]" ]]; then
     echo "✅ No changes detected."
-    echo "changes=[]" >> "$GITHUB_OUTPUT"
-    echo "images=[]" >> "$GITHUB_OUTPUT"
+    echo "changes=[]"      >> "$GITHUB_OUTPUT"
+    echo "build_matrix=[]" >> "$GITHUB_OUTPUT"
+    echo "images=[]"       >> "$GITHUB_OUTPUT"
     echo "⏭️ Skipping build. Nothing to do..."
     exit 0
   else
     echo "✅ Changes detected:"
-    echo "$output"
-    echo "changes=${output}" >> "$GITHUB_OUTPUT"
+    echo "Merge matrix (${#merge_array[@]} entries):"
+    echo "$merge_output"
+    echo "Build matrix (${#build_array[@]} entries):"
+    echo "$build_output"
+    echo "changes=${merge_output}"      >> "$GITHUB_OUTPUT"
+    echo "build_matrix=${build_output}" >> "$GITHUB_OUTPUT"
   fi
 
   local image_list="[]"
-  if [[ "${#changes_array[@]}" -gt 0 ]]; then
-    image_list="$(printf '%s\n' "${changes_array[@]}" \
+  if [[ "${#merge_array[@]}" -gt 0 ]]; then
+    image_list="$(printf '%s\n' "${merge_array[@]}" \
       | jq -R -s -c 'split("\n") | map(select(length > 0)) | map(fromjson | "\(.app):\(.channel)")')"
   fi
 
