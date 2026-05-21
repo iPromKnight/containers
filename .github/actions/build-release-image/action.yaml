@@ -1,8 +1,17 @@
-name: Build and Push Release Image (single arch)
+name: Build Single-Arch Image (load + push-by-digest)
 description: |
-  Builds a single-architecture image and pushes it by digest to ghcr.io.
-  Multi-arch manifests are assembled in a follow-on `merge-release-manifests`
-  step from the per-arch digests this action emits.
+  Builds a single-architecture image with two outputs in a single buildx
+  invocation:
+    1. type=docker (load) — the image is loaded into the runner's local
+       Docker daemon under `tag_testing` so dgoss can run goss against it
+       in a sibling step.
+    2. type=image,push-by-digest=true — the same image is pushed to ghcr.io
+       by digest only (no tag). The digest is exported as an artifact for
+       the multi-arch merge job to assemble into a tagged manifest later.
+
+  This replaces the old build-test-image + build-release-image split which
+  built the same image twice on the same runner (once for goss, once for
+  push), wasting CI minutes.
 
 inputs:
   app:
@@ -29,10 +38,16 @@ inputs:
   image:
     required: true
     description: "Image repo (e.g. ghcr.io/ipromknight/altmount). Used for digest push."
+  tag_testing:
+    required: true
+    description: "Local tag for the loaded image so dgoss can find it (e.g. altmount:testingz). Repo-prefixed automatically."
   push:
     required: false
     default: "true"
-    description: "Push the image to the registry"
+    description: |
+      Whether to push the image to the registry. When `false`, the image is
+      still loaded locally so goss can test it, but the registry push is
+      skipped and no digest artifact is uploaded. Used for dry-run flows.
   token:
     required: true
     description: "GitHub token for ghcr login"
@@ -58,7 +73,7 @@ runs:
         username: ${{ github.actor }}
         password: ${{ inputs.token }}
 
-    - name: Build and push by digest
+    - name: Build (load + push by digest in one invocation)
       id: build
       uses: docker/build-push-action@v6
       with:
@@ -79,11 +94,18 @@ runs:
         context: .
         platforms: ${{ inputs.platform }}
         file: ${{ inputs.dockerfile }}
-        # push-by-digest: docker/build-push-action pushes the manifest to the
-        # registry but does NOT create a tag — only the digest is returned.
-        # We then point one or more tags at the multi-arch manifest later.
+        # `tags:` only names the locally-loaded image — the push-by-digest
+        # output deliberately ignores tags so the registry only holds the
+        # digest-keyed manifest until the merge job assembles + tags it.
+        tags: |
+          ghcr.io/ipromknight/${{ inputs.tag_testing }}
+        # Two exporters in one build:
+        #   - type=docker → loaded into local daemon for goss
+        #   - type=image  → pushed to ghcr by digest (only when push=true)
+        # Requires buildkit/buildx 0.13+, which GHA runners have.
         outputs: |
-          type=image,name=${{ inputs.image }},push-by-digest=true,name-canonical=true,push=${{ inputs.push }}
+          type=docker
+          ${{ inputs.push == 'true' && format('type=image,name={0},push-by-digest=true,name-canonical=true,push=true', inputs.image) || '' }}
         cache-from: type=gha,scope=${{ inputs.app }}-${{ inputs.channel }}-${{ inputs.platform }}
         cache-to: type=gha,mode=max,scope=${{ inputs.app }}-${{ inputs.channel }}-${{ inputs.platform }}
 

@@ -1,0 +1,75 @@
+name: Build and Goss-Test (single arch)
+description: |
+  The "inner loop" of every images-build job: resolve build metadata via
+  setup-vars, build the image once (loading it locally for goss + pushing
+  it to ghcr by digest), then run goss against the loaded image.
+
+  Designed to be called from a matrix job that's already on the right
+  native runner for the target platform — this action does not pick a
+  runner or define a matrix, just executes the build+test steps.
+
+  The calling workflow is responsible for `actions/checkout` before
+  invoking this action (composite actions cannot perform checkout for the
+  outer workflow's repo).
+
+inputs:
+  app:
+    required: true
+    description: "App to build (e.g. altmount)"
+  channel:
+    required: true
+    description: "Channel within the app (e.g. main, stable, nightly)"
+  platform:
+    required: true
+    description: "Single docker platform string (e.g. linux/amd64, linux/arm64)"
+  dry_run:
+    required: false
+    default: "false"
+    description: "When 'true', skip both the build and the goss test"
+  token:
+    required: true
+    description: "GitHub token with package-write scope (used by build-release-image to push)"
+  public_token:
+    required: true
+    description: "PUBLIC_PACKAGES_TOKEN secret forwarded into build args"
+
+runs:
+  using: composite
+  steps:
+    - name: Dry run summary
+      if: ${{ inputs.dry_run == 'true' }}
+      shell: bash
+      run: |
+        echo "DRY RUN ENABLED – no image will be built or pushed"
+        echo "Target: ${{ inputs.app }}/${{ inputs.channel }} (${{ inputs.platform }})"
+
+    - name: Extract build metadata
+      id: vars
+      uses: ./.github/actions/setup-vars
+      with:
+        app: ${{ inputs.app }}
+        channel: ${{ inputs.channel }}
+
+    - name: Build (load + push by digest)
+      if: ${{ inputs.dry_run != 'true' }}
+      uses: ./.github/actions/build-release-image
+      with:
+        app: ${{ inputs.app }}
+        channel: ${{ inputs.channel }}
+        upstream_version: ${{ steps.vars.outputs.chan_upstream_version }}
+        dockerfile: ${{ steps.vars.outputs.chan_dockerfile }}
+        label_type: ${{ steps.vars.outputs.chan_label_type }}
+        build_date: ${{ steps.vars.outputs.chan_build_date }}
+        platform: ${{ inputs.platform }}
+        image: ${{ steps.vars.outputs.chan_image }}
+        tag_testing: ${{ steps.vars.outputs.chan_tag_testing }}
+        token: ${{ inputs.token }}
+        public_token: ${{ inputs.public_token }}
+
+    - name: Run Goss tests
+      if: ${{ inputs.dry_run != 'true' && steps.vars.outputs.chan_tests_enabled == 'true' }}
+      uses: ./.github/actions/run-goss-tests
+      with:
+        tag_testing: ${{ steps.vars.outputs.chan_tag_testing }}
+        goss_config: ${{ steps.vars.outputs.chan_goss_config }}
+        goss_args: ${{ steps.vars.outputs.chan_goss_args }}

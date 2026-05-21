@@ -25,7 +25,7 @@ jobs:
       build_matrix: ${{ steps.updates.outputs.build_matrix }}
       images:       ${{ steps.updates.outputs.images }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
         with:
           token: ${{ env.TOKEN }}
 
@@ -49,18 +49,17 @@ jobs:
       && needs.generate-build-matrix.outputs.matrix != '[]'
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
       - name: Validate metadata
         uses: ./.github/actions/validate-cue
         with:
           matrix: ${{ needs.generate-build-matrix.outputs.matrix }}
 
-  # Test build + goss runs once per (app, channel, platform) on the native
-  # runner that matches the platform — catches arch-specific runtime bugs
-  # before we push the release manifest.
-  images-test:
-    name: "Test: ${{ matrix.entry.app }} / ${{ matrix.entry.channel }} (${{ matrix.entry.platform }})"
+  # One matrix entry per (app, channel, platform) on the matching native
+  # runner. See .github/actions/build-and-test for the inner build+test loop.
+  images-build:
+    name: "Build: ${{ matrix.entry.app }} / ${{ matrix.entry.channel }} (${{ matrix.entry.platform }})"
     runs-on: ${{ matrix.entry.runner }}
     needs: [generate-build-matrix, validate-metadata]
     if: |
@@ -73,88 +72,26 @@ jobs:
         entry: ${{ fromJson(needs.generate-build-matrix.outputs.build_matrix) }}
       fail-fast: false
     steps:
-      - name: Dry run summary
-        if: ${{ env.DRY_RUN == 'true' }}
-        run: |
-          echo "DRY RUN ENABLED – no images will be built or pushed"
-          echo "Matrix entry: ${{ matrix.entry.app }}/${{ matrix.entry.channel }} (${{ matrix.entry.platform }})"
-
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
-      - name: Extract build metadata
-        id: vars
-        uses: ./.github/actions/setup-vars
+      - name: Build and test
+        uses: ./.github/actions/build-and-test
         with:
           app: ${{ matrix.entry.app }}
           channel: ${{ matrix.entry.channel }}
-
-      - name: Build test image
-        if: ${{ env.DRY_RUN != 'true' }}
-        uses: ./.github/actions/build-test-image
-        with:
-          app: ${{ matrix.entry.app }}
-          channel: ${{ matrix.entry.channel }}
-          upstream_version: ${{ steps.vars.outputs.chan_upstream_version }}
-          dockerfile: ${{ steps.vars.outputs.chan_dockerfile }}
-          tag_testing: ${{ steps.vars.outputs.chan_tag_testing }}
           platform: ${{ matrix.entry.platform }}
-          public_token: ${{ secrets.PUBLIC_PACKAGES }}
-
-      - name: Run Goss tests
-        if: ${{ env.DRY_RUN != 'true' && steps.vars.outputs.chan_tests_enabled == 'true' }}
-        uses: ./.github/actions/run-goss-tests
-        with:
-          tag_testing: ${{ steps.vars.outputs.chan_tag_testing }}
-          goss_config: ${{ steps.vars.outputs.chan_goss_config }}
-          goss_args: ${{ steps.vars.outputs.chan_goss_args }}
-
-  images-release-build:
-    name: "Release: ${{ matrix.entry.app }} / ${{ matrix.entry.channel }} (${{ matrix.entry.platform }})"
-    runs-on: ${{ matrix.entry.runner }}
-    needs: [generate-build-matrix, images-test]
-    if: |
-      always()
-      && needs.images-test.result == 'success'
-      && !cancelled()
-      && needs.generate-build-matrix.outputs.build_matrix != '[]'
-    strategy:
-      matrix:
-        entry: ${{ fromJson(needs.generate-build-matrix.outputs.build_matrix) }}
-      fail-fast: false
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Extract build metadata
-        id: vars
-        uses: ./.github/actions/setup-vars
-        with:
-          app: ${{ matrix.entry.app }}
-          channel: ${{ matrix.entry.channel }}
-
-      - name: Build and push release image (by digest)
-        if: ${{ env.DRY_RUN != 'true' }}
-        uses: ./.github/actions/build-release-image
-        with:
-          app: ${{ matrix.entry.app }}
-          channel: ${{ matrix.entry.channel }}
-          upstream_version: ${{ steps.vars.outputs.chan_upstream_version }}
-          dockerfile: ${{ steps.vars.outputs.chan_dockerfile }}
-          label_type: ${{ steps.vars.outputs.chan_label_type }}
-          build_date: ${{ steps.vars.outputs.chan_build_date }}
-          platform: ${{ matrix.entry.platform }}
-          image: ${{ steps.vars.outputs.chan_image }}
+          dry_run: ${{ env.DRY_RUN }}
           token: ${{ secrets.GH_PAT }}
           public_token: ${{ secrets.PUBLIC_PACKAGES }}
 
   images-release-merge:
     name: "Merge: ${{ matrix.image.app }} / ${{ matrix.image.channel }}"
     runs-on: ubuntu-24.04
-    needs: [generate-build-matrix, images-release-build]
+    needs: [generate-build-matrix, images-build]
     if: |
       always()
-      && needs.images-release-build.result == 'success'
+      && needs.images-build.result == 'success'
       && !cancelled()
       && needs.generate-build-matrix.outputs.matrix != '[]'
       && github.event.inputs.dryRun != 'true'
@@ -164,7 +101,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
       - name: Extract build metadata
         id: vars
@@ -185,7 +122,7 @@ jobs:
 
   notify-success:
     runs-on: ubuntu-latest
-    needs: [generate-build-matrix, validate-metadata, images-test, images-release-build, images-release-merge]
+    needs: [generate-build-matrix, validate-metadata, images-build, images-release-merge]
     if: |
       always()
       && contains(needs.*.result, 'success')
@@ -194,7 +131,7 @@ jobs:
       && needs.generate-build-matrix.outputs.matrix != '[]'
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
       - name: Notify success
         uses: ./.github/actions/notifications
@@ -219,7 +156,7 @@ jobs:
 
   notify-failure:
     runs-on: ubuntu-latest
-    needs: [generate-build-matrix, validate-metadata, images-test, images-release-build, images-release-merge]
+    needs: [generate-build-matrix, validate-metadata, images-build, images-release-merge]
     if: |
       always()
       && contains(needs.*.result, 'failure')
@@ -227,7 +164,7 @@ jobs:
       && needs.generate-build-matrix.outputs.matrix != '[]'
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
       - name: Notify failure
         uses: ./.github/actions/notifications
