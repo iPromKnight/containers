@@ -36,29 +36,30 @@ jobs:
         id: updates
         run: ./.github/scripts/rebuild-all.sh
 
-  # Test build + goss runs once per (app, channel) on a native amd64 runner.
-  # Goss assertions don't change per arch, so testing one is sufficient.
+  # Test build + goss runs once per (app, channel, platform) on the native
+  # runner that matches the platform — so arm64-specific runtime bugs
+  # (segfaulting native binaries, missing libs, wrong glibc, etc.) are caught
+  # before we push the release manifest.
   images-test:
-    name: "Test: ${{ matrix.image.app }} / ${{ matrix.image.channel }}"
-    runs-on: ubuntu-24.04
+    name: "Test: ${{ matrix.entry.app }} / ${{ matrix.entry.channel }} (${{ matrix.entry.platform }})"
+    runs-on: ${{ matrix.entry.runner }}
     needs: [generate-build-matrix]
     if: |
       always()
       && contains(needs.*.result, 'success')
       && !contains(needs.*.result, 'failure')
       && !cancelled()
-      && needs.generate-build-matrix.outputs.matrix != '[]'
+      && needs.generate-build-matrix.outputs.build_matrix != '[]'
     strategy:
       matrix:
-        image: ${{ fromJson(needs.generate-build-matrix.outputs.matrix) }}
+        entry: ${{ fromJson(needs.generate-build-matrix.outputs.build_matrix) }}
       fail-fast: false
     steps:
       - name: Dry run summary
         if: ${{ env.DRY_RUN == 'true' }}
         run: |
           echo "DRY RUN ENABLED – no images will be built or pushed"
-          echo "Matrix:"
-          echo '${{ needs.generate-build-matrix.outputs.matrix }}'
+          echo "Matrix entry: ${{ matrix.entry.app }}/${{ matrix.entry.channel }} (${{ matrix.entry.platform }})"
 
       - name: Checkout
         uses: actions/checkout@v3
@@ -67,23 +68,24 @@ jobs:
         id: vars
         uses: ./.github/actions/setup-vars
         with:
-          app: ${{ matrix.image.app }}
-          channel: ${{ matrix.image.channel }}
+          app: ${{ matrix.entry.app }}
+          channel: ${{ matrix.entry.channel }}
 
       - name: Validate metadata
         uses: ./.github/actions/validate-cue
         with:
-          app: ${{ matrix.image.app }}
+          app: ${{ matrix.entry.app }}
 
       - name: Build test image
         if: ${{ env.DRY_RUN != 'true' }}
         uses: ./.github/actions/build-test-image
         with:
-          app: ${{ matrix.image.app }}
-          channel: ${{ matrix.image.channel }}
+          app: ${{ matrix.entry.app }}
+          channel: ${{ matrix.entry.channel }}
           upstream_version: ${{ steps.vars.outputs.chan_upstream_version }}
           dockerfile: ${{ steps.vars.outputs.chan_dockerfile }}
           tag_testing: ${{ steps.vars.outputs.chan_tag_testing }}
+          platform: ${{ matrix.entry.platform }}
           public_token: ${{ secrets.PUBLIC_PACKAGES }}
 
       - name: Run Goss tests

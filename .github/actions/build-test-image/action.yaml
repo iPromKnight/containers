@@ -17,6 +17,9 @@ inputs:
   tag_testing:
     required: true
     description: "Tag for testing"
+  platform:
+    required: true
+    description: "Single platform to build (e.g. linux/amd64 or linux/arm64). Must match the runner's native arch since we use `load: true`."
   public_token:
     required: true
     description: "Github token for authentication (public packages)"
@@ -36,10 +39,12 @@ runs:
           VERSION=${{ inputs.upstream_version }}
           CHANNEL=${{ inputs.channel }}
         context: .
-        platforms: linux/amd64
+        platforms: ${{ inputs.platform }}
         file: ${{ inputs.dockerfile }}
         load: true
         tags: |
           ghcr.io/ipromknight/${{ inputs.tag_testing }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+        # Cache is per-arch — sharing the same scope across arches causes
+        # cross-arch layer reuse attempts that fail.
+        cache-from: type=gha,scope=test-${{ inputs.app }}-${{ inputs.channel }}-${{ inputs.platform }}
+        cache-to: type=gha,mode=max,scope=test-${{ inputs.app }}-${{ inputs.channel }}-${{ inputs.platform }}

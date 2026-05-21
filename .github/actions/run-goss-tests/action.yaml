@@ -18,10 +18,30 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Install Goss
-      uses: e1himself/goss-installation-action@v1.2.1
-      with:
-        version: v0.3.18
+    # We install goss + dgoss manually rather than via e1himself/goss-installation-action
+    # because that action hardcodes ARCH=amd64 and breaks when this job runs on an
+    # ubuntu-24.04-arm runner. dgoss copies the goss binary INTO the target container
+    # at runtime, so the binary's arch must match the test container's arch — which
+    # in turn matches the runner's arch (we build single-platform test images with
+    # `load: true`).
+    - name: Install Goss + dgoss
+      shell: bash
+      env:
+        GOSS_VERSION: v0.3.18
+      run: |
+        set -euo pipefail
+        case "$(uname -m)" in
+          x86_64)  GOSS_ARCH=amd64 ;;
+          aarch64) GOSS_ARCH=arm64 ;;
+          *)       echo "::error::Unsupported runner arch $(uname -m)"; exit 1 ;;
+        esac
+        sudo curl -fsSL -o /usr/local/bin/goss \
+          "https://github.com/goss-org/goss/releases/download/${GOSS_VERSION}/goss-linux-${GOSS_ARCH}"
+        sudo chmod +x /usr/local/bin/goss
+        sudo curl -fsSL -o /usr/local/bin/dgoss \
+          "https://raw.githubusercontent.com/goss-org/goss/${GOSS_VERSION}/extras/dgoss/dgoss"
+        sudo chmod +x /usr/local/bin/dgoss
+        goss --version
 
     - name: Run Goss tests
       shell: bash
