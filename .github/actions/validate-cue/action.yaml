@@ -1,18 +1,65 @@
 name: Validate CUE Metadata
-description: Validates app metadata JSON against rules using CUE
+description: |
+  Installs CUE and validates every changed app's metadata.json against the
+  shared CUE schema (metadata.rules.cue). Runs once per pipeline, deduplicated
+  on app name — metadata is per-app and channels are nested inside it, so
+  there's no point validating per-channel or per-arch.
 
 inputs:
-  app:
+  matrix:
     required: true
-    description: The app name to validate
+    description: |
+      JSON array of {app, channel, ...} entries (the merge matrix from
+      generate-build-matrix / get-changes). Only the `.app` field is read.
+  cue_version:
+    required: false
+    default: v0.16.1
+    description: CUE version to install
 
 runs:
   using: composite
   steps:
+    # We inline the install rather than using cue-lang/setup-cue@v1.0.0-alpha.2.
+    # That action is arch-aware (good), but it's a pre-1.0 alpha pinned to a
+    # 2024 release we can't easily bump without retesting the whole pipeline.
+    # The release tarball ships a single static binary at the root; a 6-line
+    # curl + tar gets us a reproducible install we control the version of.
     - name: Install CUE
-      uses: cue-lang/setup-cue@v1.0.0-alpha.2
-
-    - name: Validate metadata
       shell: bash
+      env:
+        CUE_VERSION: ${{ inputs.cue_version }}
       run: |
-        cue vet --schema '#Spec' ./apps/${{ inputs.app }}/metadata.json ./metadata.rules.cue
+        set -euo pipefail
+        case "$(uname -m)" in
+          x86_64)  CUE_ARCH=amd64 ;;
+          aarch64) CUE_ARCH=arm64 ;;
+          *)       echo "::error::Unsupported runner arch $(uname -m)"; exit 1 ;;
+        esac
+        curl -fsSL -o /tmp/cue.tgz \
+          "https://github.com/cue-lang/cue/releases/download/${CUE_VERSION}/cue_${CUE_VERSION}_linux_${CUE_ARCH}.tar.gz"
+        sudo tar -xzf /tmp/cue.tgz -C /usr/local/bin cue
+        sudo chmod +x /usr/local/bin/cue
+        rm -f /tmp/cue.tgz
+        cue version
+
+    - name: Validate every changed app's metadata
+      shell: bash
+      env:
+        MATRIX: ${{ inputs.matrix }}
+      run: |
+        set -euo pipefail
+        mapfile -t apps < <(jq -r '[.[].app] | unique | .[]' <<< "$MATRIX")
+        echo "Validating ${#apps[@]} apps:"
+        printf '  %s\n' "${apps[@]}"
+        failed=0
+        for app in "${apps[@]}"; do
+          if ! cue vet --schema '#Spec' "./apps/${app}/metadata.json" ./metadata.rules.cue; then
+            echo "::error::Validation failed for ${app}"
+            failed=$((failed + 1))
+          fi
+        done
+        if (( failed > 0 )); then
+          echo "::error::${failed} app(s) failed CUE validation"
+          exit 1
+        fi
+        echo "✅ All ${#apps[@]} apps passed CUE validation"

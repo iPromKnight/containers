@@ -38,17 +38,34 @@ jobs:
         id: updates
         run: ./.github/scripts/updates.sh
 
+  validate-metadata:
+    name: Validate metadata
+    runs-on: ubuntu-latest
+    needs: [generate-build-matrix]
+    if: |
+      always()
+      && needs.generate-build-matrix.result == 'success'
+      && !cancelled()
+      && needs.generate-build-matrix.outputs.matrix != '[]'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Validate metadata
+        uses: ./.github/actions/validate-cue
+        with:
+          matrix: ${{ needs.generate-build-matrix.outputs.matrix }}
+
   # Test build + goss runs once per (app, channel, platform) on the native
   # runner that matches the platform — catches arch-specific runtime bugs
   # before we push the release manifest.
   images-test:
     name: "Test: ${{ matrix.entry.app }} / ${{ matrix.entry.channel }} (${{ matrix.entry.platform }})"
     runs-on: ${{ matrix.entry.runner }}
-    needs: [generate-build-matrix]
+    needs: [generate-build-matrix, validate-metadata]
     if: |
       always()
-      && contains(needs.*.result, 'success')
-      && !contains(needs.*.result, 'failure')
+      && needs.validate-metadata.result == 'success'
       && !cancelled()
       && needs.generate-build-matrix.outputs.build_matrix != '[]'
     strategy:
@@ -71,11 +88,6 @@ jobs:
         with:
           app: ${{ matrix.entry.app }}
           channel: ${{ matrix.entry.channel }}
-
-      - name: Validate metadata
-        uses: ./.github/actions/validate-cue
-        with:
-          app: ${{ matrix.entry.app }}
 
       - name: Build test image
         if: ${{ env.DRY_RUN != 'true' }}
@@ -173,7 +185,7 @@ jobs:
 
   notify-success:
     runs-on: ubuntu-latest
-    needs: [generate-build-matrix, images-test, images-release-build, images-release-merge]
+    needs: [generate-build-matrix, validate-metadata, images-test, images-release-build, images-release-merge]
     if: |
       always()
       && contains(needs.*.result, 'success')
@@ -207,7 +219,7 @@ jobs:
 
   notify-failure:
     runs-on: ubuntu-latest
-    needs: [generate-build-matrix, images-test, images-release-build, images-release-merge]
+    needs: [generate-build-matrix, validate-metadata, images-test, images-release-build, images-release-merge]
     if: |
       always()
       && contains(needs.*.result, 'failure')

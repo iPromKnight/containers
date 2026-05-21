@@ -87,7 +87,8 @@ jobs:
       - name: Validate metadata
         uses: ./.github/actions/validate-cue
         with:
-          app: ${{ steps.parse.outputs.app }}
+          # Single-app run — wrap into a one-element matrix the action accepts.
+          matrix: '[{"app":"${{ steps.parse.outputs.app }}"}]'
 
       - name: Expand to per-platform build matrix
         id: expand
