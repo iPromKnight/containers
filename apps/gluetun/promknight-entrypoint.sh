@@ -75,6 +75,11 @@ if [[ ! -z "$GLUETUN_DISABLED" ]];
 then
     echo "GLUETUN_DISABLED env var set, doing nothing.."
     sleep infinity
+elif [[ $# -gt 0 ]]; then
+    # CMD args were passed (e.g. CI passing `tail -f /dev/null` for goss tests
+    # — gluetun proper needs NET_ADMIN to run iptables and would fail to
+    # start in a privilege-less test container). Honour the override.
+    exec "$@"
 else
     exec \
         /gluetun-entrypoint

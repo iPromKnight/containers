@@ -8,4 +8,4 @@ source "/prom_scripts/wait-for-mounts.sh"
 source "/prom_scripts/umask.sh"
 source "/prom_scripts/extra-scripts.sh"
 
-exec /promknight-entrypoint.sh
+exec /promknight-entrypoint.sh "$@"

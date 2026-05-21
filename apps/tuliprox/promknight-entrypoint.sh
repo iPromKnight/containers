@@ -24,6 +24,10 @@ EOF
 if [ "${SKIP_STARTUP}" = "1" ]; then
   echo "SKIP_STARTUP=1 → not starting Tuliprox, sleeping..."
   exec sleep infinity
+elif [ $# -gt 0 ]; then
+  # CMD args were passed (e.g. CI passing `tail -f /dev/null` for goss
+  # tests). Honour the override so tests can run against an idle container.
+  exec "$@"
 else
   exec tini -- /app/tuliprox -s -p /config
 fi
