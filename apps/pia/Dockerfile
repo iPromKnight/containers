@@ -43,7 +43,12 @@ RUN apk add --no-cache \
     libcap-utils \
     jq \
     openssl \
+    sed \
     wireguard-tools
+# `sed` overrides BusyBox sed (built into the alpine base) with GNU sed,
+# which is required because upstream's /scripts/run uses `sed --unbuffered`
+# to prefix log lines from the wg-gen / pf subprocesses. Without this the
+# container fails at startup with "sed: unrecognized option: unbuffered".
 
 # Modify wg-quick so it doesn't die without --privileged
 # Set net.ipv4.conf.all.src_valid_mark=1 on container creation using --sysctl if required instead
