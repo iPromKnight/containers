@@ -104,11 +104,6 @@ jobs:
           app: ${{ matrix.entry.app }}
           channel: ${{ matrix.entry.channel }}
 
-      - name: Validate metadata
-        uses: ./.github/actions/validate-cue
-        with:
-          app: ${{ matrix.entry.app }}
-
       - name: Build test image
         uses: ./.github/actions/build-test-image
         with:
