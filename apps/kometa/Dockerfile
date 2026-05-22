@@ -7,7 +7,7 @@ RUN apk update && apk upgrade && \
 
 RUN git clone -b $VERSION  https://github.com/Kometa-Team/Kometa.git /source
 
-FROM python:3.11-slim-bullseye
+FROM python:3.13-slim-bullseye
 
 ARG BRANCH_NAME=master
 ENV BRANCH_NAME=${BRANCH_NAME}
