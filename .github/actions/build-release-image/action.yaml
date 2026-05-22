@@ -75,7 +75,7 @@ runs:
 
     - name: Build (load + push by digest in one invocation)
       id: build
-      uses: docker/build-push-action@v6
+      uses: docker/build-push-action@v7
       with:
         secrets: |
           "PUBLIC_PACKAGES_TOKEN=${{ inputs.public_token }}"
