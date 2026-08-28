@@ -11,7 +11,7 @@ RUN apk add --update --no-cache git \
 # Dockerfile uses denoland/deno:2.7.12 — we copy that pattern exactly so the
 # build steps stay in lockstep with upstream regardless of how their build
 # evolves; we only diverge in the final stage to base on our standard ubuntu.
-FROM denoland/deno:2.7.12 AS build
+FROM denoland/deno:2.9.6 AS build
 WORKDIR /build
 
 COPY --from=cloner /source/deno.json /source/deno.lock ./
