@@ -14,7 +14,7 @@ RUN --mount=type=cache,target=/root/.npm,sharing=locked \
     npm prune --omit=dev
 
 # Backend build — .NET SDK on BUILDPLATFORM, cross-publishes to TARGETARCH
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS backend-build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:11.0-alpine AS backend-build
 ARG TARGETARCH
 WORKDIR /backend
 COPY --from=cloner /source/backend/. .
