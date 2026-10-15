@@ -125,7 +125,7 @@ runs:
 
     - name: Upload digest artifact
       if: ${{ inputs.push == 'true' }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         # name-mangling: per-(app, channel, arch). Merge job globs on
         # `digests-${app}-${channel}-*` to find all arches for this image.
